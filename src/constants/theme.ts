@@ -1,26 +1,41 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Identidade visual "Hora do Remédio".
+ *
+ * Paleta "farmácia de bairro": verde-garrafa (confiança) sobre papel-creme,
+ * âmbar reservado para tudo que é hora/alarme. Tipografia arredondada
+ * (SF Rounded, nativa do iOS) nos horários — redonda como comprimido.
  */
-
-import '@/global.css';
 
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1F2B25',
+    textSecondary: '#5E6B63',
+    background: '#F7F4EC',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#EAE6DB',
+    brand: '#175A41',
+    onBrand: '#FFFFFF',
+    brandSoft: '#DEEDE4',
+    accent: '#B36F12',
+    accentSoft: '#F6E8CC',
+    outline: '#E3DFD3',
+    danger: '#B3402C',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#EDF3EE',
+    textSecondary: '#9FAFA4',
+    background: '#101612',
+    backgroundElement: '#1B231D',
+    backgroundSelected: '#273129',
+    brand: '#57B98A',
+    onBrand: '#0C1A12',
+    brandSoft: '#20362A',
+    accent: '#E5A84E',
+    accentSoft: '#3A2F1B',
+    outline: '#2A342C',
+    danger: '#E07B62',
   },
 } as const;
 
@@ -61,5 +76,10 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const Radius = {
+  chip: 10,
+  card: 20,
+  bubble: 999,
+} as const;
+
 export const MaxContentWidth = 800;

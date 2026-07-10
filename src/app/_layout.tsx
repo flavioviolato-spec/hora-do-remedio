@@ -1,18 +1,42 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Colors, Fonts } from '@/constants/theme';
 
-SplashScreen.preventAutoHideAsync();
+function buildNavTheme(scheme: 'light' | 'dark'): typeof DefaultTheme {
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const palette = Colors[scheme];
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: palette.brand,
+      background: palette.background,
+      card: palette.background,
+      text: palette.text,
+      border: palette.outline,
+    },
+  };
+}
 
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+    <ThemeProvider value={buildNavTheme(scheme)}>
+      <Stack
+        screenOptions={{
+          headerTitleStyle: { fontFamily: Fonts.rounded, fontWeight: '700' },
+          headerShadowVisible: false,
+        }}
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="medicine/new"
+          options={{ title: 'Novo remédio', presentation: 'modal' }}
+        />
+      </Stack>
     </ThemeProvider>
   );
 }

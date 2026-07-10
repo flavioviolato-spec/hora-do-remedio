@@ -4,7 +4,18 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'title'
+    | 'small'
+    | 'smallBold'
+    | 'subtitle'
+    | 'link'
+    | 'linkPrimary'
+    | 'code'
+    | 'heading'
+    | 'eyebrow'
+    | 'clock';
   themeColor?: ThemeColor;
 };
 
@@ -23,6 +34,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        type === 'heading' && styles.heading,
+        type === 'eyebrow' && styles.eyebrow,
+        type === 'clock' && styles.clock,
         style,
       ]}
       {...rest}
@@ -69,5 +83,25 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
     fontSize: 12,
+  },
+  heading: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: 700,
+  },
+  eyebrow: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: 700,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  /** Horários de dose: SF Rounded com algarismos tabulares. */
+  clock: {
+    fontFamily: Fonts.rounded,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: 700,
+    fontVariant: ['tabular-nums'],
   },
 });
