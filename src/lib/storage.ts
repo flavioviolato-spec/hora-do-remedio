@@ -6,9 +6,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { DoseRecord, Medicine } from './types';
+import { TIME_RE, isValidDateISO, type DoseRecord, type Medicine } from './types';
 
 const STORE_KEY = 'hora-do-remedio/store';
+
+/** IDs são UUIDs gerados pelo app; viram nome de arquivo de foto, então
+ * qualquer coisa fora desse formato é rejeitada (evita caminho malicioso). */
+const ID_RE = /^[0-9a-zA-Z-]{1,64}$/;
 
 export type Store = {
   version: 1;
@@ -18,15 +22,12 @@ export type Store = {
 
 export const EMPTY_STORE: Store = { version: 1, medicines: [], doseLog: [] };
 
-const TIME_RE = /^\d{2}:\d{2}$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
 function isValidMedicine(value: unknown): value is Medicine {
   if (typeof value !== 'object' || value === null) return false;
   const med = value as Record<string, unknown>;
   return (
     typeof med.id === 'string' &&
-    med.id.length > 0 &&
+    ID_RE.test(med.id) &&
     typeof med.name === 'string' &&
     med.name.trim().length > 0 &&
     (med.photoUri === null || typeof med.photoUri === 'string') &&
@@ -34,7 +35,7 @@ function isValidMedicine(value: unknown): value is Medicine {
     med.times.length > 0 &&
     med.times.every((t) => typeof t === 'string' && TIME_RE.test(t)) &&
     typeof med.startDate === 'string' &&
-    DATE_RE.test(med.startDate) &&
+    isValidDateISO(med.startDate) &&
     typeof med.durationDays === 'number' &&
     Number.isInteger(med.durationDays) &&
     med.durationDays >= 1 &&
@@ -50,7 +51,7 @@ function isValidDose(value: unknown): value is DoseRecord {
   return (
     typeof dose.medicineId === 'string' &&
     typeof dose.dateISO === 'string' &&
-    DATE_RE.test(dose.dateISO) &&
+    isValidDateISO(dose.dateISO) &&
     typeof dose.time === 'string' &&
     TIME_RE.test(dose.time) &&
     typeof dose.takenAt === 'string'
@@ -73,7 +74,11 @@ export async function loadStore(): Promise<Store> {
     if (raw === null) return EMPTY_STORE;
     return sanitizeStore(JSON.parse(raw));
   } catch (error) {
-    console.warn('[storage] loja corrompida, começando vazia:', error);
+    // Só a mensagem: o conteúdo da loja tem dados de saúde e não deve ir a log.
+    console.warn(
+      '[storage] loja corrompida, começando vazia:',
+      error instanceof Error ? error.message : 'erro desconhecido',
+    );
     return EMPTY_STORE;
   }
 }

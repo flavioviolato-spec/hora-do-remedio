@@ -48,9 +48,13 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Grava no disco PRIMEIRO; a tela só muda se a gravação deu certo.
+  // storeRef é atualizado na hora (sem esperar re-renderização) para
+  // mutações em sequência rápida não lerem estado velho.
   const commit = useCallback(async (next: Store) => {
-    setStore(next);
     await saveStore(next);
+    storeRef.current = next;
+    setStore(next);
   }, []);
 
   const addMedicine = useCallback(
@@ -77,9 +81,6 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
     async (id: string, patch: Partial<Medicine>) => {
       const current = storeRef.current;
       const previous = current.medicines.find((med) => med.id === id);
-      if (previous && patch.photoUri !== undefined && patch.photoUri !== previous.photoUri) {
-        await deletePhoto(previous.photoUri);
-      }
       const medicines = current.medicines.map((med) => {
         if (med.id !== id) return med;
         const next = { ...med, ...patch, id: med.id };
@@ -88,6 +89,11 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
         return next;
       });
       await commit({ ...current, medicines });
+      // Foto antiga só é apagada DEPOIS da gravação: arquivo órfão é
+      // inofensivo; referência quebrada na lista, não.
+      if (previous && patch.photoUri !== undefined && patch.photoUri !== previous.photoUri) {
+        await deletePhoto(previous.photoUri);
+      }
     },
     [commit],
   );
@@ -96,12 +102,12 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       const current = storeRef.current;
       const target = current.medicines.find((med) => med.id === id);
-      if (target) await deletePhoto(target.photoUri);
       await commit({
         ...current,
         medicines: current.medicines.filter((med) => med.id !== id),
         doseLog: current.doseLog.filter((dose) => dose.medicineId !== id),
       });
+      if (target) await deletePhoto(target.photoUri);
     },
     [commit],
   );

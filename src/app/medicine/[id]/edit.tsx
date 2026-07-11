@@ -73,7 +73,11 @@ export default function EditMedicineScreen() {
         </View>
         <Switch
           value={medicine.active}
-          onValueChange={(active) => updateMedicine(medicine.id, { active })}
+          onValueChange={(active) =>
+            updateMedicine(medicine.id, { active }).catch(() =>
+              Alert.alert('Não foi possível salvar', 'Tente pausar de novo.'),
+            )
+          }
           trackColor={{ true: theme.brand }}
           accessibilityLabel="Lembretes ativos"
         />

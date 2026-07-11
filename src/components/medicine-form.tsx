@@ -17,7 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { toDateISO, toTimeHM } from '@/lib/schedule';
-import type { Medicine } from '@/lib/types';
+import { DEFAULT_SOUND_ID, type Medicine } from '@/lib/types';
 import { validateMedicine, type MedicineFormValues } from '@/lib/validation';
 
 type Props = {
@@ -50,24 +50,32 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const tomorrowISO = toDateISO(addDays(new Date(), 1));
 
   async function captureFromCamera() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        'Sem acesso à câmera',
-        'Libere a câmera em Ajustes → Hora do Remédio para fotografar a caixinha.',
-      );
-      return;
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Sem acesso à câmera',
+          'Libere a câmera em Ajustes → Hora do Remédio para fotografar a caixinha.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
+      if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+    } catch {
+      Alert.alert('Não foi possível abrir a câmera', 'Tente de novo.');
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
   }
 
   async function pickFromLibrary() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+    } catch {
+      Alert.alert('Não foi possível abrir a galeria', 'Tente de novo.');
+    }
   }
 
   function addTime() {
@@ -87,7 +95,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       times,
       startDate,
       durationDays,
-      soundId: initial?.soundId ?? 'classico',
+      soundId: initial?.soundId ?? DEFAULT_SOUND_ID,
     };
     const problems = validateMedicine(values);
     setErrors(problems);
@@ -96,7 +104,10 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
     try {
       await onSubmit(values);
     } catch (error) {
-      console.warn('[form] falha ao salvar:', error);
+      console.warn(
+        '[form] falha ao salvar:',
+        error instanceof Error ? error.message : 'erro desconhecido',
+      );
       Alert.alert('Não foi possível salvar', 'Tente de novo. Se persistir, me avise.');
     } finally {
       setSaving(false);
@@ -165,6 +176,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
             onPress={() => removeTime(time)}
             accessibilityRole="button"
             accessibilityLabel={`Remover horário ${time}`}
+            hitSlop={8}
             style={[styles.timeChip, { backgroundColor: theme.accentSoft }]}
           >
             <ThemedText type="smallBold" themeColor="accent" style={styles.tabularNums}>
@@ -223,6 +235,8 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
               key={preset}
               onPress={() => setDurationDays(preset)}
               accessibilityRole="button"
+              accessibilityState={{ selected }}
+              hitSlop={8}
               style={[
                 styles.timeChip,
                 selected ? { backgroundColor: theme.brand } : fieldBox,
@@ -272,6 +286,8 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
               key={option.value}
               onPress={() => setStartDate(option.value)}
               accessibilityRole="button"
+              accessibilityState={{ selected }}
+              hitSlop={8}
               style={[styles.timeChip, selected ? { backgroundColor: theme.brand } : fieldBox]}
             >
               <ThemedText type="smallBold" style={selected ? { color: theme.onBrand } : undefined}>

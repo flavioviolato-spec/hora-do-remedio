@@ -1,3 +1,18 @@
+import { isValid, parseISO } from 'date-fns';
+
+/** Horário "HH:MM" com faixa real: hora 00–23, minuto 00–59. */
+export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Formato "YYYY-MM-DD" (só o formato; use isValidDateISO p/ datas reais). */
+export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** true só para datas que existem de verdade (rejeita 30/02, mês 13 etc.). */
+export function isValidDateISO(value: string): boolean {
+  return DATE_RE.test(value) && isValid(parseISO(value));
+}
+
+export const DEFAULT_SOUND_ID = 'classico';
+
 /** Um remédio cadastrado pelo usuário. */
 export type Medicine = {
   id: string;

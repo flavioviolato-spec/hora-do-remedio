@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
 import { MedicineForm } from '@/components/medicine-form';
 import { ThemedView } from '@/components/themed-view';
@@ -11,11 +12,23 @@ export default function NewMedicineScreen() {
   const { addMedicine, updateMedicine } = useMedicines();
 
   async function handleSubmit(values: MedicineFormValues) {
-    // Salva primeiro; a foto é copiada em seguida para o arquivo definitivo.
+    // Salva o remédio primeiro. A foto é a parte "opcional": se ela falhar,
+    // o remédio NÃO é perdido nem duplicado — só avisamos sobre a foto.
     const medicine = await addMedicine({ ...values, photoUri: null });
     if (values.photoUri) {
-      const finalUri = await persistPhoto(values.photoUri, medicine.id);
-      await updateMedicine(medicine.id, { photoUri: finalUri });
+      try {
+        const finalUri = await persistPhoto(values.photoUri, medicine.id);
+        await updateMedicine(medicine.id, { photoUri: finalUri });
+      } catch (error) {
+        console.warn(
+          '[novo remédio] foto não pôde ser salva:',
+          error instanceof Error ? error.message : 'erro desconhecido',
+        );
+        Alert.alert(
+          'Remédio salvo',
+          'Só a foto não pôde ser guardada. Toque no remédio para tentar de novo.',
+        );
+      }
     }
     router.back();
   }

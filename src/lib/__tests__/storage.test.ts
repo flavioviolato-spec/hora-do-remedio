@@ -112,4 +112,90 @@ describe('sanitizeStore', () => {
     expect(sanitizeStore(null)).toEqual(EMPTY_STORE);
     expect(sanitizeStore([1, 2])).toEqual(EMPTY_STORE);
   });
+
+  // --- Casos-limite adicionados pelo QA ---
+
+  it('version ausente: loja vazia', () => {
+    expect(sanitizeStore({ medicines: [makeMedicine()], doseLog: [] })).toEqual(EMPTY_STORE);
+  });
+
+  it('version "1" como string (não número): loja vazia', () => {
+    expect(sanitizeStore({ version: '1', medicines: [makeMedicine()], doseLog: [] })).toEqual(
+      EMPTY_STORE,
+    );
+  });
+
+  it('medicines/doseLog que não são arrays: viram arrays vazios', () => {
+    const dirty = { version: 1, medicines: 'x', doseLog: { a: 1 } };
+    expect(sanitizeStore(dirty)).toEqual({ version: 1, medicines: [], doseLog: [] });
+  });
+
+  it('filtra remédio com lista de horários vazia', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ times: [] })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('filtra remédio sem campo obrigatório (durationDays ausente)', () => {
+    const semDuracao = { ...makeMedicine() } as Record<string, unknown>;
+    delete semDuracao.durationDays;
+    const dirty = { version: 1, medicines: [semDuracao], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('filtra remédio com durationDays em string ("7") ou não inteiro (2.5)', () => {
+    const dirty = {
+      version: 1,
+      medicines: [
+        makeMedicine({ durationDays: '7' as unknown as number }),
+        makeMedicine({ id: 'b', durationDays: 2.5 }),
+      ],
+      doseLog: [],
+    };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('filtra dose com horário sem formato HH:MM ("8h") ou takenAt não-string', () => {
+    const dirty = {
+      version: 1,
+      medicines: [],
+      doseLog: [
+        { medicineId: 'a', dateISO: '2026-07-10', time: '8h', takenAt: '2026-07-10T08:00:00.000Z' },
+        { medicineId: 'a', dateISO: '2026-07-10', time: '08:00', takenAt: 12345 },
+      ],
+    };
+    expect(sanitizeStore(dirty).doseLog).toHaveLength(0);
+  });
+
+  it('duplicidade: mesmo remédio (mesmo id) duas vezes é mantido duas vezes — observação, não filtra', () => {
+    // sanitizeStore não deduplica por id. Hoje o app é o único escritor da loja,
+    // mas se um backup/restauração duplicar entradas, haverá alarmes em dobro.
+    // Documentado aqui como comportamento atual (baixa severidade).
+    const dirty = { version: 1, medicines: [makeMedicine(), makeMedicine()], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(2);
+  });
+
+  it('loja grande (1000 remédios válidos) é aceita integralmente', () => {
+    const muitos = Array.from({ length: 1000 }, (_, i) => makeMedicine({ id: `med-${i}` }));
+    const dirty = { version: 1, medicines: muitos, doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(1000);
+  });
+
+  it('horário impossível "24:00"/"23:60" é filtrado pela sanitização', () => {
+    const dirty = {
+      version: 1,
+      medicines: [makeMedicine({ times: ['24:00', '23:60'] })],
+      doseLog: [],
+    };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('startDate impossível "2026-02-30" é filtrada pela sanitização', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ startDate: '2026-02-30' })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('id fora do padrão UUID (ex.: "../x") é filtrado — vira nome de arquivo de foto', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ id: '../x' })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
 });

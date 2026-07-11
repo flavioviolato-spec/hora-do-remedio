@@ -1,5 +1,7 @@
 /** Validação dos dados do formulário de remédio. Mensagens em português. */
 
+import { TIME_RE, isValidDateISO } from './types';
+
 export type MedicineFormValues = {
   name: string;
   photoUri: string | null;
@@ -8,9 +10,6 @@ export type MedicineFormValues = {
   durationDays: number;
   soundId: string;
 };
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{2}:\d{2}$/;
 
 /** Retorna a lista de problemas; vazia = tudo certo. */
 export function validateMedicine(values: MedicineFormValues): string[] {
@@ -26,7 +25,7 @@ export function validateMedicine(values: MedicineFormValues): string[] {
     errors.push('Adicione pelo menos um horário.');
   }
   if (values.times.some((t) => !TIME_RE.test(t))) {
-    errors.push('Há um horário em formato inválido.');
+    errors.push('Há um horário inválido (use 00:00 a 23:59).');
   }
   if (new Set(values.times).size !== values.times.length) {
     errors.push('Há horários repetidos — remova o duplicado.');
@@ -37,7 +36,7 @@ export function validateMedicine(values: MedicineFormValues): string[] {
   if (values.durationDays > 365) {
     errors.push('Duração máxima: 365 dias.');
   }
-  if (!DATE_RE.test(values.startDate)) {
+  if (!isValidDateISO(values.startDate)) {
     errors.push('Data de início inválida.');
   }
 

@@ -4,7 +4,15 @@
 
 ## Estado atual
 
-**Etapa 1 (esqueleto) concluída. Etapa 2 (smoke build) é a próxima — bloqueada pela conta GitHub.**
+**Etapas 1 e 3 concluídas (Etapa 3 adiantada). Etapa 2 (smoke build) bloqueada pela conta GitHub; Etapa 4 (alarmes) depende da 2.**
+
+### Etapa 3 — concluída (11/07/2026)
+- [x] Cadastro real: foto da caixinha (câmera/galeria, redimensionada 800px), nome, horários múltiplos (seletor giratório), duração (presets + ajuste), início hoje/amanhã
+- [x] Persistência JSON versionada + sanitização (src/lib/storage.ts) — dado corrompido nunca derruba o app
+- [x] Editar / pausar (switch) / excluir (com confirmação e limpeza de foto e histórico)
+- [x] Ciclo completo de revisão: **testador** (82→83 testes; achou 2 defeitos de validação — CORRIGIDOS: horários 24:00/23:60 e datas 30/02 agora rejeitados nas duas camadas), **revisor-seguranca** (aprovado sem críticos; itens médio/baixos aplicados: logs sem nome de remédio, .gitignore .env, ID validado como padrão seguro), **revisor-codigo** (2 críticos de consistência CORRIGIDOS: gravar-antes-de-mostrar no commit, storeRef sem corrida, foto apagada só após gravação, remédio não duplica se a foto falhar)
+- [x] Verificação final: `tsc` ok, **83/83 testes**, app rodando no iPhone do Flavio via Expo Go (túnel)
+- Pendências conhecidas (opcionais, anotadas pelo revisor): botão "remover foto", limpeza de fotos órfãs, unificar ciclo da foto no contexto, limpar variantes não usadas do themed-text
 
 ### Etapa 0 — concluída
 - [x] Plano aprovado pelo Flavio (ver PLANO.md)

@@ -38,17 +38,20 @@ export class MockAlarmAdapter implements AlarmPort {
     return this.authorization;
   }
 
+  // Logs sem o nome do remédio (dado de saúde): id e horário bastam p/ depurar.
   async scheduleDailyAlarm(req: DailyAlarmRequest): Promise<string> {
     const id = `mock-${this.nextId++}`;
     this.scheduled.push({ id, kind: 'daily', ...req });
-    console.log(`[alarme simulado] diário ${req.time} — ${req.title} (${id})`);
+    console.log(`[alarme simulado] diário ${req.time} (medicineId=${req.medicineId}, ${id})`);
     return id;
   }
 
   async scheduleFixedAlarm(req: FixedAlarmRequest): Promise<string> {
     const id = `mock-${this.nextId++}`;
     this.scheduled.push({ id, kind: 'fixed', ...req });
-    console.log(`[alarme simulado] fixo ${req.fireDate.toISOString()} — ${req.title} (${id})`);
+    console.log(
+      `[alarme simulado] fixo ${req.fireDate.toISOString()} (medicineId=${req.medicineId}, ${id})`,
+    );
     return id;
   }
 

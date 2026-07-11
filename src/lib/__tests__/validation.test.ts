@@ -65,4 +65,46 @@ describe('validateMedicine', () => {
     const errors = validateMedicine(makeValues({ name: '', times: [], durationDays: 0 }));
     expect(errors.length).toBeGreaterThanOrEqual(3);
   });
+
+  // --- Casos-limite adicionados pelo QA ---
+
+  it('duração exatamente 365 é válida (limite superior)', () => {
+    expect(validateMedicine(makeValues({ durationDays: 365 }))).toEqual([]);
+  });
+
+  it('duração exatamente 1 é válida (limite inferior)', () => {
+    expect(validateMedicine(makeValues({ durationDays: 1 }))).toEqual([]);
+  });
+
+  it('nome com exatamente 80 caracteres é válido (limite)', () => {
+    expect(validateMedicine(makeValues({ name: 'a'.repeat(80) }))).toEqual([]);
+  });
+
+  it('horário sem dois-pontos ("0800") é rejeitado', () => {
+    expect(validateMedicine(makeValues({ times: ['0800'] }))).not.toEqual([]);
+  });
+
+  it('horário com um dígito na hora ("8:00") é rejeitado', () => {
+    expect(validateMedicine(makeValues({ times: ['8:00'] }))).not.toEqual([]);
+  });
+
+  it('data de início vazia: erro', () => {
+    expect(validateMedicine(makeValues({ startDate: '' }))).not.toEqual([]);
+  });
+
+  it('29 de fevereiro em ano bissexto (2028) é válido', () => {
+    expect(validateMedicine(makeValues({ startDate: '2028-02-29' }))).toEqual([]);
+  });
+
+  it('horários impossíveis ("24:00", "23:60", "99:99") são rejeitados', () => {
+    expect(validateMedicine(makeValues({ times: ['24:00'] }))).not.toEqual([]);
+    expect(validateMedicine(makeValues({ times: ['23:60'] }))).not.toEqual([]);
+    expect(validateMedicine(makeValues({ times: ['99:99'] }))).not.toEqual([]);
+  });
+
+  it('datas impossíveis (30/02, mês 13, 29/02 em ano não bissexto) são rejeitadas', () => {
+    expect(validateMedicine(makeValues({ startDate: '2026-02-30' }))).not.toEqual([]);
+    expect(validateMedicine(makeValues({ startDate: '2026-13-01' }))).not.toEqual([]);
+    expect(validateMedicine(makeValues({ startDate: '2026-02-29' }))).not.toEqual([]);
+  });
 });

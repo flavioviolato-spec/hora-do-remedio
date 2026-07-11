@@ -46,6 +46,40 @@ describe('treatmentEndISO', () => {
       '2027-01-03',
     );
   });
+
+  it('29 de fevereiro em ano bissexto: início e travessia corretos', () => {
+    expect(treatmentEndISO(makeMedicine({ startDate: '2028-02-28', durationDays: 2 }))).toBe(
+      '2028-02-29',
+    );
+    expect(treatmentEndISO(makeMedicine({ startDate: '2028-02-29', durationDays: 1 }))).toBe(
+      '2028-02-29',
+    );
+    expect(treatmentEndISO(makeMedicine({ startDate: '2028-02-29', durationDays: 2 }))).toBe(
+      '2028-03-01',
+    );
+  });
+
+  it('fevereiro em ano NÃO bissexto: 28/02 + 2 dias cai em 01/03', () => {
+    expect(treatmentEndISO(makeMedicine({ startDate: '2026-02-28', durationDays: 2 }))).toBe(
+      '2026-03-01',
+    );
+  });
+
+  it('duração 365 exata: ano comum fecha em 31/12; ano bissexto fecha em 30/12', () => {
+    expect(treatmentEndISO(makeMedicine({ startDate: '2026-01-01', durationDays: 365 }))).toBe(
+      '2026-12-31',
+    );
+    expect(treatmentEndISO(makeMedicine({ startDate: '2028-01-01', durationDays: 365 }))).toBe(
+      '2028-12-30',
+    );
+  });
+
+  it('contrato: só recebe datas válidas — data impossível lança RangeError', () => {
+    // A validação e a sanitização barram datas impossíveis antes daqui
+    // (isValidDateISO em types.ts). Se uma passar por um caminho novo,
+    // o erro é imediato e barulhento, não silencioso:
+    expect(() => treatmentEndISO(makeMedicine({ startDate: '2026-02-30' }))).toThrow(RangeError);
+  });
 });
 
 describe('isActiveOn', () => {
@@ -96,6 +130,20 @@ describe('daysRemaining', () => {
     const longo = makeMedicine({ startDate: '2026-07-28', durationDays: 10 });
     expect(daysRemaining(longo, '2026-07-30')).toBe(8);
     expect(daysRemaining(longo, '2026-08-06')).toBe(1);
+  });
+
+  it('duração 365 exata: 365 no primeiro dia, 1 no último', () => {
+    const ano = makeMedicine({ startDate: '2026-01-01', durationDays: 365 });
+    expect(daysRemaining(ano, '2026-01-01')).toBe(365);
+    expect(daysRemaining(ano, '2026-12-31')).toBe(1);
+    expect(daysRemaining(ano, '2027-01-01')).toBe(0);
+  });
+
+  it('tratamento que atravessa 29/02 bissexto conta o dia extra', () => {
+    const med = makeMedicine({ startDate: '2028-02-28', durationDays: 3 }); // 28, 29/02 e 01/03
+    expect(daysRemaining(med, '2028-02-28')).toBe(3);
+    expect(daysRemaining(med, '2028-02-29')).toBe(2);
+    expect(daysRemaining(med, '2028-03-01')).toBe(1);
   });
 });
 
@@ -148,6 +196,22 @@ describe('doseStatus', () => {
   it('horário futuro: "upcoming"', () => {
     expect(doseStatus('20:00', '08:00', false)).toBe('upcoming');
   });
+
+  it('virada de meia-noite: dose 00:00 vista às 00:00 ainda é "upcoming", às 00:01 é "late"', () => {
+    expect(doseStatus('00:00', '00:00', false)).toBe('upcoming');
+    expect(doseStatus('00:00', '00:01', false)).toBe('late');
+  });
+
+  it('fim do dia: dose 23:59 vista às 23:59 é "upcoming", tomada é "taken"', () => {
+    expect(doseStatus('23:59', '23:59', false)).toBe('upcoming');
+    expect(doseStatus('23:59', '23:59', true)).toBe('taken');
+  });
+
+  it('contrato: comparação vale só dentro do MESMO dia (23:00 vs relógio 00:00 do dia seguinte não é atraso)', () => {
+    // Quem chama doseStatus deve recalcular a lista de doses quando o dia vira;
+    // este teste fixa a semântica: a função não conhece datas, só horários.
+    expect(doseStatus('23:00', '00:00', false)).toBe('upcoming');
+  });
 });
 
 describe('computeDesiredAlarms', () => {
@@ -173,6 +237,28 @@ describe('computeDesiredAlarms', () => {
     expect(computeDesiredAlarms([med], '2026-07-10')[0].title).toBe(
       'Solução de Ibuprofeno — atenção à ç',
     );
+  });
+
+  it('horários fora de ordem no cadastro saem ordenados nos alarmes', () => {
+    const med = makeMedicine({ times: ['22:00', '06:00', '14:00'] });
+    expect(computeDesiredAlarms([med], '2026-07-10').map((a) => a.time)).toEqual([
+      '06:00',
+      '14:00',
+      '22:00',
+    ]);
+  });
+
+  it('mesmo horário em remédios diferentes: desempate estável por id', () => {
+    const b = makeMedicine({ id: 'med-b', times: ['08:00'] });
+    const a = makeMedicine({ id: 'med-a', times: ['08:00'] });
+    expect(computeDesiredAlarms([b, a], '2026-07-10').map((x) => x.medicineId)).toEqual([
+      'med-a',
+      'med-b',
+    ]);
+  });
+
+  it('remédio pausado não gera alarme mesmo dentro do período', () => {
+    expect(computeDesiredAlarms([makeMedicine({ active: false })], '2026-07-10')).toEqual([]);
   });
 });
 
