@@ -12,7 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { MOCK_MEDICINES } from '@/lib/mockData';
+import { useMedicines } from '@/lib/medicines-context';
 import { doseStatus, dosesForDate, toDateISO, toTimeHM } from '@/lib/schedule';
 import { doseKey } from '@/lib/types';
 
@@ -34,9 +34,8 @@ export default function HomeScreen() {
   const todayISO = toDateISO(now);
   const nowHM = toTimeHM(now);
 
-  // Etapa 1: dados fictícios e marcação apenas em memória.
-  // Etapa 3 troca por storage real; Etapa 5 persiste as doses tomadas.
-  const medicines = MOCK_MEDICINES;
+  const { medicines, loading } = useMedicines();
+  // Marcação de dose ainda em memória — a Etapa 5 persiste no histórico.
   const [takenKeys, setTakenKeys] = useState<Set<string>>(new Set());
 
   const todayDoses = useMemo(() => dosesForDate(medicines, todayISO), [medicines, todayISO]);
@@ -66,12 +65,6 @@ export default function HomeScreen() {
             </ThemedText>
             <ThemedText type="subtitle">
               {capitalize(format(now, "EEEE, d 'de' MMMM", { locale: ptBR }))}
-            </ThemedText>
-          </View>
-
-          <View style={[styles.demoBanner, { backgroundColor: theme.accentSoft }]}>
-            <ThemedText type="small" themeColor="accent">
-              Dados de exemplo — o cadastro de verdade chega na Etapa 3.
             </ThemedText>
           </View>
 
@@ -110,7 +103,9 @@ export default function HomeScreen() {
             <ThemedView type="backgroundElement" style={styles.emptyBox}>
               <SymbolView name="pills" size={40} tintColor={theme.textSecondary} />
               <ThemedText themeColor="textSecondary" style={styles.emptyText}>
-                Nenhum remédio por aqui.{'\n'}Toque em “Adicionar remédio” e fotografe a caixinha.
+                {loading
+                  ? 'Carregando…'
+                  : 'Nenhum remédio por aqui.\nToque em “Adicionar remédio” e fotografe a caixinha.'}
               </ThemedText>
             </ThemedView>
           ) : (
@@ -120,7 +115,7 @@ export default function HomeScreen() {
                   key={medicine.id}
                   medicine={medicine}
                   todayISO={todayISO}
-                  onEdit={() => router.push('/medicine/new')}
+                  onEdit={() => router.push(`/medicine/${medicine.id}/edit`)}
                 />
               ))}
             </View>
@@ -165,11 +160,6 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
     marginTop: Spacing.two,
-  },
-  demoBanner: {
-    borderRadius: Radius.chip,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
   },
   sectionTitle: {
     marginTop: Spacing.two,

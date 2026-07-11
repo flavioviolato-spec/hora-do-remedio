@@ -10,7 +10,11 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "br.com.flavioviolato.horadoremedio",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "O app usa a câmera para você fotografar a caixinha do remédio.",
+        "NSPhotoLibraryUsageDescription": "O app acessa suas fotos para você escolher a imagem da caixinha do remédio."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +38,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,0 +1,45 @@
+/** Validação dos dados do formulário de remédio. Mensagens em português. */
+
+export type MedicineFormValues = {
+  name: string;
+  photoUri: string | null;
+  times: string[];
+  startDate: string;
+  durationDays: number;
+  soundId: string;
+};
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+/** Retorna a lista de problemas; vazia = tudo certo. */
+export function validateMedicine(values: MedicineFormValues): string[] {
+  const errors: string[] = [];
+
+  if (values.name.trim().length === 0) {
+    errors.push('Dê um nome ao remédio (como está na caixinha).');
+  }
+  if (values.name.trim().length > 80) {
+    errors.push('O nome está longo demais (máximo 80 letras).');
+  }
+  if (values.times.length === 0) {
+    errors.push('Adicione pelo menos um horário.');
+  }
+  if (values.times.some((t) => !TIME_RE.test(t))) {
+    errors.push('Há um horário em formato inválido.');
+  }
+  if (new Set(values.times).size !== values.times.length) {
+    errors.push('Há horários repetidos — remova o duplicado.');
+  }
+  if (!Number.isInteger(values.durationDays) || values.durationDays < 1) {
+    errors.push('A duração precisa ser de pelo menos 1 dia.');
+  }
+  if (values.durationDays > 365) {
+    errors.push('Duração máxima: 365 dias.');
+  }
+  if (!DATE_RE.test(values.startDate)) {
+    errors.push('Data de início inválida.');
+  }
+
+  return errors;
+}
