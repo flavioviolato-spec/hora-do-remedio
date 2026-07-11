@@ -32,7 +32,7 @@
 
 ## Próximos passos
 
-1. Flavio testar a Home no iPhone via Expo Go (servidor: `npm start`; instruções na conversa)
+1. Flavio testar a Home no iPhone via Expo Go — usar `npx expo start --tunnel` (iPhone fora da rede local; QR/URL: ver DESAFIOS.md item 5)
 2. Etapa 2 (maior risco): conta GitHub → repo público → CI → .ipa → AltStore → alarme no silencioso
 3. Etapa 3: cadastro real (foto, horários, duração) + storage
 
