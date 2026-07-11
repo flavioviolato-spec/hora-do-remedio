@@ -4,7 +4,9 @@
 
 ## Estado atual
 
-**Etapas 1 e 3 concluídas (Etapa 3 adiantada). Etapa 2 (smoke build) bloqueada pela conta GitHub; Etapa 4 (alarmes) depende da 2.**
+**ETAPA 2 CONCLUÍDA EM 11/07/2026 — MARCO PRINCIPAL: alarme do app TOCOU no iPhone do Flavio em MODO SILENCIOSO com tela bloqueada (confirmado por ele).** App v0.1.2-teste instalado via AltStore no PC local dele (Plano B: Sideload .ipa direto pelo AltServer resolveu o erro "could not find this device"). Pipeline completo validado: código → GitHub → build na nuvem → Release → AltStore → iPhone.
+
+**Próxima etapa: 4 (alarmes reais por remédio — reconciliador alarmSync).** Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (Etapa 7).
 
 ### Etapa 3 — concluída (11/07/2026)
 - [x] Cadastro real: foto da caixinha (câmera/galeria, redimensionada 800px), nome, horários múltiplos (seletor giratório), duração (presets + ajuste), início hoje/amanhã
