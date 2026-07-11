@@ -72,7 +72,7 @@ Passou por **3 rodadas de QA independente** (subagente testador) que encontraram
 
 ## Próximos passos
 
-1. Publicar nova tag/Release (v0.2.x) e Flavio atualizar o app via AltStore para testar alarmes reais no iPhone
+1. **v0.2.0-teste PUBLICADO** (11/07/2026): github.com/flavioviolato-spec/hora-do-remedio/releases/tag/v0.2.0-teste — Release automático funcionou de primeira (correção de permissões do CI confirmada definitiva). Flavio: atualizar via AltStore (Refresh) e testar alarmes reais dos remédios cadastrados.
 2. Depois: Etapa 5 (doses tomadas — histórico + celebração) + OCR + Etapa 6
 
 ## Como retomar em nova sessão
