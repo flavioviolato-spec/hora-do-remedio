@@ -26,7 +26,7 @@ import { parseISO } from 'date-fns';
 
 import type { AlarmPort } from './alarm/port';
 import { computeDesiredAlarms, computeFutureFirstDoses, toDateISO } from './schedule';
-import type { Medicine } from './types';
+import { doseKey, type Medicine } from './types';
 
 /** Não reagenda se faltar menos que isto para um alarme disparar — evita
  * cancelar, mesmo que por um instante, um alarme prestes a tocar. */
@@ -44,6 +44,11 @@ type PortQueue = {
   running: boolean;
   pendingArgs: { medicines: Medicine[]; now: Date | undefined } | null;
   pendingWaiters: Waiter[];
+  /** Chaves (ver dailyKey/fixedKey) dos alarmes que a última rodada bem
+   * sucedida realmente deixou agendados no AlarmKit — usado em reconcileOnce
+   * para a proteção "iminente" só travar um alarme que JÁ EXISTE de verdade,
+   * nunca a primeira vez que um horário é agendado. */
+  lastScheduledKeys: Set<string>;
 };
 
 const queues = new WeakMap<AlarmPort, PortQueue>();
@@ -51,10 +56,20 @@ const queues = new WeakMap<AlarmPort, PortQueue>();
 function getQueue(port: AlarmPort): PortQueue {
   let queue = queues.get(port);
   if (!queue) {
-    queue = { running: false, pendingArgs: null, pendingWaiters: [] };
+    queue = { running: false, pendingArgs: null, pendingWaiters: [], lastScheduledKeys: new Set() };
     queues.set(port, queue);
   }
   return queue;
+}
+
+// Mesmo padrão de doseKey (types.ts) — chave estável para identificar um
+// alarme específico dentro de lastScheduledKeys.
+function dailyKey(medicineId: string, time: string): string {
+  return `daily|${medicineId}|${time}`;
+}
+
+function fixedKey(medicineId: string, time: string, dateISO: string): string {
+  return `fixed|${doseKey(medicineId, dateISO, time)}`;
 }
 
 export function reconcileAlarms(
@@ -88,7 +103,7 @@ async function runQueued(
 ): Promise<ReconcileResult> {
   queue.running = true;
   try {
-    return await reconcileOnce(port, medicines, now ?? new Date());
+    return await reconcileOnce(port, queue, medicines, now ?? new Date());
   } finally {
     queue.running = false;
     const nextArgs = queue.pendingArgs;
@@ -106,6 +121,7 @@ async function runQueued(
 
 async function reconcileOnce(
   port: AlarmPort,
+  queue: PortQueue,
   medicines: Medicine[],
   now: Date,
 ): Promise<ReconcileResult> {
@@ -113,9 +129,22 @@ async function reconcileOnce(
   const desiredDaily = computeDesiredAlarms(medicines, todayISO);
   const futureFirstDoses = computeFutureFirstDoses(medicines, todayISO);
 
+  // Só trava por "iminente" um alarme que JÁ ESTÁ agendado de verdade (ver
+  // lastScheduledKeys) — senão a 1ª vez que alguém cadastra um remédio com
+  // horário próximo (ex.: testando "daqui a 3 minutos"), como não existe
+  // nada para proteger ainda, a reconciliação inteira ficaria pulando pra
+  // sempre e o alarme NUNCA seria criado, sem nenhum aviso na tela.
   const imminent =
-    desiredDaily.some((alarm) => isDailyImminent(alarm.time, now)) ||
-    futureFirstDoses.some((dose) => isFixedImminent(dose.dateISO, dose.time, now));
+    desiredDaily.some(
+      (alarm) =>
+        queue.lastScheduledKeys.has(dailyKey(alarm.medicineId, alarm.time)) &&
+        isDailyImminent(alarm.time, now),
+    ) ||
+    futureFirstDoses.some(
+      (dose) =>
+        queue.lastScheduledKeys.has(fixedKey(dose.medicineId, dose.time, dose.dateISO)) &&
+        isFixedImminent(dose.dateISO, dose.time, now),
+    );
   if (imminent) {
     return { status: 'skipped-imminent' };
   }
@@ -135,6 +164,10 @@ async function reconcileOnce(
     await port.stopAllAlarms();
   } catch (error) {
     warnGeneric('stopAllAlarms', error);
+    // Estado do AlarmKit agora é desconhecido (não sabemos se limpou) —
+    // não fica reivindicando nenhum alarme como "existente" até a próxima
+    // reconciliação bem sucedida confirmar de novo.
+    queue.lastScheduledKeys = new Set();
     return {
       status: 'partial-failure',
       dailyCount: 0,
@@ -146,12 +179,17 @@ async function reconcileOnce(
     };
   }
 
+  // stopAllAlarms limpou tudo — a partir daqui, "o que está de verdade
+  // agendado" é exatamente o que esta rodada conseguir criar com sucesso.
+  const scheduledKeys = new Set<string>();
+
   let dailyOk = 0;
   let failedCount = 0;
   for (const alarm of desiredDaily) {
     try {
       await port.scheduleDailyAlarm(alarm);
       dailyOk++;
+      scheduledKeys.add(dailyKey(alarm.medicineId, alarm.time));
     } catch (error) {
       failedCount++;
       warn('diário', alarm.medicineId, alarm.time, error);
@@ -168,11 +206,14 @@ async function reconcileOnce(
         fireDate: toFireDate(dose.dateISO, dose.time),
       });
       futureOk++;
+      scheduledKeys.add(fixedKey(dose.medicineId, dose.time, dose.dateISO));
     } catch (error) {
       failedCount++;
       warn('1ª dose futura', dose.medicineId, dose.time, error);
     }
   }
+
+  queue.lastScheduledKeys = scheduledKeys;
 
   if (failedCount > 0) {
     return { status: 'partial-failure', dailyCount: dailyOk, futureCount: futureOk, failedCount };

@@ -67,18 +67,24 @@ class FakeAlarmPort implements AlarmPort {
 }
 
 describe('DEFEITO 1 (corrigido) — isImminent trata a virada de meia-noite (alarme diário)', () => {
-  it('now=23:59:30 e alarme diário às "00:00": dispara em 30s (amanhã) — skipped-imminent', async () => {
+  it('now=23:59:30 e alarme diário JÁ AGENDADO às "00:00": dispara em 30s (amanhã) — skipped-imminent (não cancela o que já existe)', async () => {
     const port = new FakeAlarmPort();
     const med = makeMedicine({ times: ['00:00'] });
-    const now = new Date('2026-07-10T23:59:30');
 
+    // 1ª reconciliação, de manhã: "00:00" está a ~12h de distância — agenda
+    // normalmente (a proteção só existe para o que JÁ está agendado).
+    const first = await reconcileAlarms(port, [med], new Date('2026-07-10T12:00:00'));
+    expect(first).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
+    expect(port.stopAllCalls).toBe(1);
+
+    // 2ª reconciliação, perto da virada: o MESMO alarme já agendado dispara
+    // em 30s (virada para amanhã) — a reconciliação é pulada, como já
+    // acontecia para "10:02" visto às 10:00.
+    const now = new Date('2026-07-10T23:59:30');
     const result = await reconcileAlarms(port, [med], now);
 
-    // O próximo disparo real do alarme diário "00:00" está a 30s (virada
-    // para amanhã) — a reconciliação é pulada, como já acontecia para
-    // "10:02" visto às 10:00.
     expect(result).toEqual({ status: 'skipped-imminent' });
-    expect(port.stopAllCalls).toBe(0);
+    expect(port.stopAllCalls).toBe(1); // não mexeu de novo
   });
 
   it('sanity check: now=00:00:30 e alarme "23:59" (do dia anterior) — não é iminente, correto', async () => {
@@ -95,15 +101,22 @@ describe('DEFEITO 1 (corrigido) — isImminent trata a virada de meia-noite (ala
 });
 
 describe('DEFEITO 4 (corrigido) — janela "imminent" também protege alarme de DATA FIXA (1ª dose futura)', () => {
-  it('remédio começa amanhã às 00:00; now=hoje 23:59:30 (30s para disparar) — skipped-imminent', async () => {
+  it('remédio começa amanhã às 00:00 e a 1ª dose JÁ está agendada; now=hoje 23:59:30 (30s para disparar) — skipped-imminent (não cancela o que já existe)', async () => {
     const port = new FakeAlarmPort();
     const med = makeMedicine({ startDate: '2026-07-11', times: ['00:00'] });
-    const now = new Date('2026-07-10T23:59:30');
 
+    // 1ª reconciliação, de manhã: a 1ª dose futura está a quase 1 dia de
+    // distância — agenda normalmente.
+    const first = await reconcileAlarms(port, [med], new Date('2026-07-10T12:00:00'));
+    expect(first).toEqual({ status: 'ok', dailyCount: 0, futureCount: 1 });
+    expect(port.stopAllCalls).toBe(1);
+
+    // 2ª reconciliação, perto da hora: a MESMA dose já agendada dispara em 30s.
+    const now = new Date('2026-07-10T23:59:30');
     const result = await reconcileAlarms(port, [med], now);
 
     expect(result).toEqual({ status: 'skipped-imminent' });
-    expect(port.stopAllCalls).toBe(0);
+    expect(port.stopAllCalls).toBe(1); // não mexeu de novo
   });
 });
 

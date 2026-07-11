@@ -269,39 +269,46 @@ describe('QA independente (corrigido) — "now" é lido de novo quando a rodada 
     jest.useRealTimers();
   });
 
-  it('B NÃO passa `now` explícito (exatamente como alarm-sync-context.tsx faz) e fica presa na fila atrás de A; quando a rodada de B roda de fato — minutos reais depois —, ela lê o relógio NAQUELE instante, não no instante em que foi chamada — "skipped-imminent" continua protegendo mesmo depois de esperar na fila', async () => {
+  it('B JÁ tinha alarme agendado de antes; quando a rodada enfileirada roda de fato — minutos reais depois —, ela lê o relógio NAQUELE instante, não no instante em que foi chamada — "skipped-imminent" continua protegendo mesmo depois de esperar na fila', async () => {
     jest.useFakeTimers({ advanceTimers: false });
-    jest.setSystemTime(new Date('2026-07-10T06:00:00'));
+    jest.setSystemTime(new Date('2026-07-10T05:00:00'));
 
     const { port, blockCall, waitStarted, release, scheduled } = createControllablePort();
-    blockCall(1); // prende a rodada de A dentro de scheduleDailyAlarm
 
     const medA = makeMedicine({ id: 'a', times: ['01:00'] }); // horário irrelevante p/ A
-    // B tem alarme às 06:05. Às 06:00 (agora), isso está a 5 min de
-    // distância — fora da janela de 2 min, corretamente "não iminente"
-    // no instante em que a chamada é feita.
+    // B tem alarme às 06:05.
     const medB = makeMedicine({ id: 'b', times: ['06:05'] });
 
-    const pA = reconcileAlarms(port, [medA]); // sem `now` — igual à produção: usa `new Date()` = 06:00 (fake)
-    await waitStarted(1); // A já está presa dentro de scheduleDailyAlarm
+    // Pré-condição: B já está agendado de antes (05:00, bem longe de ser
+    // iminente) — a proteção só existe para o que JÁ existe de verdade.
+    const pre = await reconcileAlarms(port, [medB]);
+    expect(pre).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
+
+    jest.setSystemTime(new Date('2026-07-10T06:00:00'));
+    blockCall(2); // a próxima chamada global (dentro da rodada de A) fica presa
+
+    const pA = reconcileAlarms(port, [medA, medB]); // sem `now` — igual à produção: usa `new Date()` = 06:00 (fake)
+    await waitStarted(2); // A já está presa dentro de scheduleDailyAlarm
 
     const pB = reconcileAlarms(port, [medA, medB]); // enfileira; `now` só será lido quando a rodada rodar de fato
 
-    // Enquanto B espera na fila (A continua presa), o relógio real
-    // avança 4 minutos — ex.: a rodada de A demorou porque tinha muitos
-    // remédios com chamadas nativas lentas.
+    // Enquanto a rodada enfileirada espera (A continua presa), o relógio
+    // real avança 4 minutos — ex.: a rodada de A demorou porque tinha
+    // muitos remédios com chamadas nativas lentas.
     jest.setSystemTime(new Date('2026-07-10T06:04:00'));
 
-    release(1); // só agora A termina, e a rodada de B roda de fato — às 06:04 "reais"
+    release(2); // só agora A termina, e a rodada enfileirada roda de fato — às 06:04 "reais"
     const [rA, rB] = await Promise.all([pA, pB]);
-    expect(rA).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
+    expect(rA).toEqual({ status: 'ok', dailyCount: 2, futureCount: 0 });
 
-    // Corrigido: a rodada de B lê o relógio no instante em que REALMENTE
-    // roda (06:04), não no instante em que foi chamada (06:00). Às 06:04,
-    // "b@06:05" está a 1 min de disparar — dentro da janela de proteção —
-    // e a reconciliação inteira é pulada (nada é cancelado/reagendado).
+    // Corrigido: a rodada enfileirada lê o relógio no instante em que
+    // REALMENTE roda (06:04), não no instante em que foi chamada (06:00). Às
+    // 06:04, "b@06:05" (já agendado) está a 1 min de disparar — dentro da
+    // janela de proteção — e a reconciliação inteira é pulada (nada é
+    // cancelado/reagendado).
     expect(rB).toEqual({ status: 'skipped-imminent' });
-    expect(scheduled.some((s) => s.medicineId === 'b')).toBe(false);
+    // O alarme de B continua sendo o mesmo agendado pela rodada de A — não foi mexido de novo.
+    expect(scheduled.filter((s) => s.medicineId === 'b')).toHaveLength(1);
   });
 });
 
@@ -312,28 +319,33 @@ describe('QA independente (confirmação final) — cadeia de 3+ rodadas (não s
 
   it('A (líder) → B (1ª mesclada) → D (2ª mesclada, formada enquanto B ainda rodava): a rodada de D só fica "skipped-imminent" por causa do horário real em que ELA começa (bem mais tarde), não por causa do horário em que foi enfileirada (bem antes, quando nem seria iminente)', async () => {
     jest.useFakeTimers({ advanceTimers: false });
-    jest.setSystemTime(new Date('2026-07-10T06:00:00'));
+    jest.setSystemTime(new Date('2026-07-10T05:00:00'));
 
     const { port, blockCall, waitStarted, release, scheduled } = createControllablePort();
-    blockCall(1); // prende a rodada de A (líder)
-    blockCall(2); // prende a rodada de B (1ª mesclada)
 
     const medA = makeMedicine({ id: 'a', times: ['01:00'] }); // horário irrelevante
     const medB = makeMedicine({ id: 'b', times: ['02:00'] }); // horário irrelevante
     const medC = makeMedicine({ id: 'c', times: ['03:00'] }); // será descartado (C é sobrescrita por D antes de rodar)
-    // medE às 06:10: às 06:03 (quando C e D são enfileiradas) está a 7 min
-    // de distância — bem fora da janela de 2 min. Só fica "iminente" perto
-    // das 06:08.
+    // medE às 06:10: precisa já estar agendado de antes para a proteção
+    // "iminente" valer (ver describe acima) — pré-agendado às 05:00, bem
+    // longe de ser iminente. Continua em TODA lista daqui pra frente (do
+    // contrário, "sumiria" da reconciliação — igual a um remédio removido).
     const medE = makeMedicine({ id: 'e', times: ['06:10'] });
+    const pre = await reconcileAlarms(port, [medE]);
+    expect(pre).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
 
-    const pA = reconcileAlarms(port, [medA]); // líder, sem `now` — igual à produção
-    await waitStarted(1); // A presa dentro de scheduleDailyAlarm
+    jest.setSystemTime(new Date('2026-07-10T06:00:00'));
+    blockCall(2); // prende a rodada de A (líder) — 2ª chamada global (1ª foi o pré-agendamento de "e")
+
+    const pA = reconcileAlarms(port, [medA, medE]); // líder, sem `now` — igual à produção
+    await waitStarted(2); // A presa dentro de scheduleDailyAlarm
 
     jest.setSystemTime(new Date('2026-07-10T06:01:00'));
-    const pB = reconcileAlarms(port, [medA, medB]); // forma a rodada mesclada seguinte (ainda sem rodar)
+    const pB = reconcileAlarms(port, [medA, medB, medE]); // forma a rodada mesclada seguinte (ainda sem rodar)
 
-    release(1); // A termina; a rodada de B começa a rodar de verdade agora (06:01)
-    await waitStarted(2); // B já entrou em scheduleDailyAlarm e está presa
+    blockCall(4); // prende a rodada de B (1ª mesclada) — sua 1ª chamada será a 4ª global
+    release(2); // A termina (agenda "a" e, em seguida, "e" sem travar) — a rodada de B começa a rodar de verdade agora (06:01)
+    await waitStarted(4); // B já entrou em scheduleDailyAlarm e está presa
 
     // Enquanto B roda (presa), chegam MAIS DUAS chamadas — formam a 3ª
     // rodada (mesclada em cima da mesclada). C é sobrescrita por D antes
@@ -341,7 +353,7 @@ describe('QA independente (confirmação final) — cadeia de 3+ rodadas (não s
     // chamadas acima) — mas isso é enfileiramento, não execução: nenhum
     // relógio é lido aqui, só os dados ficam guardados.
     jest.setSystemTime(new Date('2026-07-10T06:02:00'));
-    const pC = reconcileAlarms(port, [medA, medB, medC]);
+    const pC = reconcileAlarms(port, [medA, medB, medC, medE]);
     jest.setSystemTime(new Date('2026-07-10T06:03:00'));
     const pD = reconcileAlarms(port, [medA, medB, medE]);
 
@@ -349,24 +361,25 @@ describe('QA independente (confirmação final) — cadeia de 3+ rodadas (não s
     // lenta) antes de ser liberada — só então a rodada de D (3ª rodada)
     // de fato começa a rodar.
     jest.setSystemTime(new Date('2026-07-10T06:08:30'));
-    release(2); // B termina; a rodada de D começa a rodar agora (06:08:30)
+    release(4); // B termina; a rodada de D começa a rodar agora (06:08:30)
 
     const [rA, rB, rC, rD] = await Promise.all([pA, pB, pC, pD]);
 
-    expect(rA).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
-    expect(rB).toEqual({ status: 'ok', dailyCount: 2, futureCount: 0 });
+    expect(rA).toEqual({ status: 'ok', dailyCount: 2, futureCount: 0 });
+    expect(rB).toEqual({ status: 'ok', dailyCount: 3, futureCount: 0 });
 
     // C e D são mescladas na mesma 3ª rodada (mesmo resultado para as duas).
     expect(rC).toEqual(rD);
 
     // Se a 3ª rodada tivesse herdado ou "vazado" um `now` de qualquer
     // instante anterior (06:01, 06:02 ou 06:03 — todos > 2 min de
-    // distância de 06:10), ela teria seguido em frente e agendado "e".
+    // distância de 06:10), ela teria seguido em frente e reagendado tudo.
     // Como ela lê o relógio de verdade só ao começar a rodar (06:08:30,
-    // a 1,5 min de "e@06:10" — dentro da janela de 2 min), o resultado
-    // correto é "skipped-imminent", sem tocar em nenhum alarme.
+    // a 1,5 min de "e@06:10", que JÁ está agendado — dentro da janela de
+    // 2 min), o resultado correto é "skipped-imminent", sem tocar em nada.
     expect(rD).toEqual({ status: 'skipped-imminent' });
-    expect(scheduled.some((s) => s.medicineId === 'e')).toBe(false);
+    // "e" continua agendado (da rodada de B) — só não foi tocado de novo.
+    expect(scheduled.filter((s) => s.medicineId === 'e')).toHaveLength(1);
     expect(scheduled.some((s) => s.medicineId === 'c')).toBe(false); // C nem chegou a rodar sozinha (foi sobrescrita por D)
   });
 });

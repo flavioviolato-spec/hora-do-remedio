@@ -104,14 +104,32 @@ describe('reconcileAlarms', () => {
     ]);
   });
 
-  it('pula a reconciliação inteira quando falta 2 minutos ou menos para um alarme de hoje', async () => {
+  it('remédio novo com horário próximo (nunca agendado antes) é agendado na hora — não fica pulando para sempre', async () => {
+    // Nada para proteger ainda (é a 1ª vez que este alarme existiria), então
+    // a proteção "iminente" não trava o 1º agendamento — só travaria se ele
+    // JÁ estivesse agendado e uma reconciliação seguinte fosse cancelá-lo.
     const port = new FakeAlarmPort();
-    const iminente = makeMedicine({ times: ['10:02'] }); // 2 min de diferença, no limite
-    const result = await reconcileAlarms(port, [iminente], NOW);
+    const novo = makeMedicine({ times: ['10:01'] }); // 1 min de diferença
+    const result = await reconcileAlarms(port, [novo], NOW);
 
-    expect(result).toEqual({ status: 'skipped-imminent' });
-    expect(port.stopAllCalls).toBe(0);
-    expect(port.scheduled).toEqual([]);
+    expect(result).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
+    expect(port.scheduled).toEqual([{ kind: 'daily', medicineId: 'med-1', time: '10:01' }]);
+  });
+
+  it('pula a reconciliação quando falta 2 minutos ou menos para um alarme JÁ AGENDADO (protege de cancelar por engano)', async () => {
+    const port = new FakeAlarmPort();
+    const med = makeMedicine({ times: ['10:02'] }); // 2 min de diferença, no limite
+
+    // 1ª reconciliação bem mais cedo: agenda normalmente (nada iminente ainda).
+    const first = await reconcileAlarms(port, [med], new Date('2026-07-10T09:00:00'));
+    expect(first).toEqual({ status: 'ok', dailyCount: 1, futureCount: 0 });
+    expect(port.stopAllCalls).toBe(1);
+
+    // 2ª reconciliação: o MESMO alarme, já agendado, está a 2 min de tocar.
+    const second = await reconcileAlarms(port, [med], NOW);
+
+    expect(second).toEqual({ status: 'skipped-imminent' });
+    expect(port.stopAllCalls).toBe(1); // não mexeu de novo
   });
 
   it('não pula quando o alarme de hoje já passou ou está a mais de 2 minutos', async () => {
