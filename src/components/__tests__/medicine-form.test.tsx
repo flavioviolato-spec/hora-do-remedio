@@ -203,8 +203,10 @@ describe('MedicineForm - OCR do nome do remédio', () => {
     expect(findNameInput(tree!).props.value).toBe('José da Conceição 500mg');
 
     // Agora o OCR termina com uma sugestão diferente.
+    // (Nome fictício sem a palavra "genérico", que a heurística filtra de
+    // propósito por ser texto padrão de embalagem, não nome de remédio.)
     await act(async () => {
-      resolvers[0](['Guaporé Genérico']);
+      resolvers[0](['Xarope Guaporé']);
     });
     await flushMicrotasks();
 
@@ -233,10 +235,10 @@ describe('MedicineForm - OCR do nome do remédio', () => {
     expect(mockRecognizeText).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      resolvers[0](['Guaporé Genérico', '500mg']);
+      resolvers[0](['Xarope Guaporé', '500mg']);
     });
     await flushMicrotasks();
 
-    expect(findNameInput(tree!).props.value).toBe('Guaporé Genérico');
+    expect(findNameInput(tree!).props.value).toBe('Xarope Guaporé');
   });
 });

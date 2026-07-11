@@ -8,6 +8,14 @@
 
 **Próxima: sugestão automática do campo "Tratamento" pelo nome do remédio** (lista curada de remédios comuns + aprender do histórico do próprio usuário) — decidido com o Flavio; entra DEPOIS de o OCR ser confirmado funcionando no iPhone dele. Este é o único item novo na fila; o roadmap original está completo.
 
+### Etapa 8.1 — heurística do OCR v2, após teste com embalagens reais (11/07/2026)
+- [x] Feedback do teste no aparelho (v0.6.0-teste): OCR pegava só a 1ª linha de nome composto ("cloridrato de …" perdia a substância) e escolhia o nome do laboratório impresso no topo da caixa
+- [x] `ocr-heuristics.ts` v2: junção de linhas vizinhas que continuam o nome (termina em "de/da/do" ou próxima linha começa minúscula, máx. 3 linhas); lista de ~40 laboratórios BR pulados (igualdade normalizada, sem acento); filtros de textos de embalagem (genérico, "medicamento …", Lei, venda sob prescrição, uso oral/adulto/retal/etc., razão social Ltda/S.A./Laboratórios)
+- [x] Limite conhecido e documentado: laboratório fora da lista, impresso acima do nome, ainda pode vencer — mitigado pela edição manual e pela lista expansível
+- [x] Achado LGPD do revisor de segurança corrigido: comentário/teste não ligam mais pessoa a medicamentos específicos (repo é público)
+- [x] Ciclo completo: testador (cenários das embalagens reais, 267→270 testes), revisor-codigo (4 melhorias aplicadas: sufixo societário, `^medicamento\b`, mais vias de uso, trimEnd), revisor-seguranca (aprovado; sem ReDoS, função continua pura)
+- [x] Verificação final: `tsc` ok, **270/270 testes**
+
 ### Etapa 8 — OCR do nome do remédio (11/07/2026)
 - [x] `src/lib/ocr.ts`: `recognizeText(photoUri)` — require protegido de `expo-text-extractor`, nunca lança (tudo vira `[]`), silencioso no Expo Go, nunca loga texto/foto (dado de saúde)
 - [x] `src/lib/ocr-heuristics.ts`: `pickBestNameCandidate(lines)` — função pura, escolhe a linha mais provável de ser o nome (descarta dosagem/validade/lote, corta em `MAX_NAME_LENGTH`)
