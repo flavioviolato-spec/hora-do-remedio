@@ -7,13 +7,15 @@
     "icon": "./assets/images/icon.png",
     "scheme": "horadoremedio",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "br.com.flavioviolato.horadoremedio",
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "O app usa a câmera para você fotografar a caixinha do remédio.",
-        "NSPhotoLibraryUsageDescription": "O app acessa suas fotos para você escolher a imagem da caixinha do remédio."
+        "NSPhotoLibraryUsageDescription": "O app acessa suas fotos para você escolher a imagem da caixinha do remédio.",
+        "NSAlarmKitUsageDescription": "O app agenda alarmes para lembrar você de tomar seus remédios na hora certa, mesmo com o iPhone no silencioso."
       }
     },
     "android": {
@@ -39,7 +41,15 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "26.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

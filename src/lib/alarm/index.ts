@@ -1,17 +1,20 @@
 /**
  * Ponto único de acesso ao AlarmPort.
  *
- * Hoje sempre devolve o mock (Expo Go). Na Etapa 2, quando o módulo
- * nativo AlarmKit entrar no build, este arquivo passa a detectá-lo e
- * escolher o adapter real — o resto do app não muda.
+ * Em build nativo (iOS 26+): adapter real com AlarmKit — alarme toca
+ * mesmo no silencioso. No Expo Go / testes: mock que só registra.
  */
 
 import { MockAlarmAdapter } from './mock';
+import { createNativeAlarmAdapter } from './native';
 import type { AlarmPort } from './port';
 
-const instance: AlarmPort = new MockAlarmAdapter();
+let instance: AlarmPort | null = null;
 
 export function getAlarmPort(): AlarmPort {
+  if (instance === null) {
+    instance = createNativeAlarmAdapter() ?? new MockAlarmAdapter();
+  }
   return instance;
 }
 

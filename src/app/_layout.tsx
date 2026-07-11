@@ -43,6 +43,7 @@ export default function RootLayout() {
             name="medicine/[id]/edit"
             options={{ title: 'Editar remédio', presentation: 'modal' }}
           />
+          <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
         </Stack>
       </MedicinesProvider>
     </ThemeProvider>

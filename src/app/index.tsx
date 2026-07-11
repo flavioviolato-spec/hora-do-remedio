@@ -60,9 +60,19 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <ThemedText type="eyebrow" themeColor="brand">
-              Hora do Remédio
-            </ThemedText>
+            <View style={styles.headerTop}>
+              <ThemedText type="eyebrow" themeColor="brand">
+                Hora do Remédio
+              </ThemedText>
+              <Pressable
+                onPress={() => router.push('/settings')}
+                accessibilityRole="button"
+                accessibilityLabel="Ajustes"
+                hitSlop={8}
+              >
+                <SymbolView name="gearshape.fill" size={22} tintColor={theme.textSecondary} />
+              </Pressable>
+            </View>
             <ThemedText type="subtitle">
               {capitalize(format(now, "EEEE, d 'de' MMMM", { locale: ptBR }))}
             </ThemedText>
@@ -160,6 +170,11 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
     marginTop: Spacing.two,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionTitle: {
     marginTop: Spacing.two,

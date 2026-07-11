@@ -39,11 +39,25 @@
 - Nome provisório do app: **"Hora do Remédio"** (mudável até a Etapa 6).
 - 11 vulnerabilidades moderadas em dev-deps do npm — revisar na Etapa 7.
 
+### Etapa 2 — em andamento (11/07/2026)
+- [x] Flavio CONFIRMOU ter conta GitHub → etapa destravada
+- [x] Módulo AlarmKit instalado e pinado: react-native-nitro-ios-alarm-kit@1.0.41 + react-native-nitro-modules (fork na conta do Flavio ainda pendente)
+- [x] Adapter nativo (src/lib/alarm/native.ts): require protegido — Expo Go continua no mock; botões "Tomei"/"Adiar" (10 min), tint verde da marca
+- [x] Tela Ajustes (src/app/settings.tsx) com "Testar alarme em 1 minuto" — o smoke test do silencioso; engrenagem na Home
+- [x] app.json: deploymentTarget 26.0 (expo-build-properties), NSAlarmKitUsageDescription, newArchEnabled
+- [x] .github/workflows/build-ios.yml: runner macos-26, prebuild → pod install → xcodebuild sem assinatura → .ipa artefato + Release em tags v*
+- [x] Verificação: tsc ok, 83/83 testes, expo export ok (Expo Go não quebra)
+- [ ] Flavio criar repo público `hora-do-remedio` no github.com e informar o usuário
+- [ ] Push (login via navegador/Git Credential Manager) → tag v0.1.0-teste → build na nuvem
+- [ ] AltStore no PC (iTunes+iCloud do site da Apple) → instalar .ipa → ALARME TOCAR NO SILENCIOSO
+- Novo pedido do Flavio (11/07): OCR do nome do remédio na foto — tarefa registrada, entra após a Etapa 2 (precisa de build nativo)
+
 ## Próximos passos
 
-1. Flavio testar a Home no iPhone via Expo Go — usar `npx expo start --tunnel` (iPhone fora da rede local; QR/URL: ver DESAFIOS.md item 5)
-2. Etapa 2 (maior risco): conta GitHub → repo público → CI → .ipa → AltStore → alarme no silencioso
-3. Etapa 3: cadastro real (foto, horários, duração) + storage
+1. Flavio: criar o repositório e me passar o nome de usuário (instruções na conversa)
+2. Eu: push + tag → acompanhar build → guia AltStore em português
+3. Smoke test no iPhone: alarme de teste no modo silencioso
+4. Depois: Etapa 4 (alarmes reais por remédio) + OCR + Etapa 5
 
 ## Como retomar em nova sessão
 
