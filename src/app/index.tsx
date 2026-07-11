@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DoseCheckItem } from '@/components/dose-check-item';
@@ -15,11 +15,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAlarmSyncStatus } from '@/lib/alarm-sync-context';
 import { useMedicines } from '@/lib/medicines-context';
 import { doseStatus, dosesForDate, toDateISO, toTimeHM } from '@/lib/schedule';
+import { capitalize } from '@/lib/text';
 import { doseKey } from '@/lib/types';
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -35,11 +32,9 @@ export default function HomeScreen() {
   const todayISO = toDateISO(now);
   const nowHM = toTimeHM(now);
 
-  const { medicines, loading } = useMedicines();
+  const { medicines, doseLog, loading, toggleDose } = useMedicines();
   const { permissionDenied, schedulingFailed } = useAlarmSyncStatus();
   const alarmWarning = permissionDenied || schedulingFailed;
-  // Marcação de dose ainda em memória — a Etapa 5 persiste no histórico.
-  const [takenKeys, setTakenKeys] = useState<Set<string>>(new Set());
 
   const todayDoses = useMemo(() => dosesForDate(medicines, todayISO), [medicines, todayISO]);
 
@@ -48,13 +43,19 @@ export default function HomeScreen() {
     [medicines],
   );
 
-  const toggleDose = (medicineId: string, time: string) => {
-    const key = doseKey(medicineId, todayISO, time);
-    setTakenKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+  const takenKeys = useMemo(
+    () =>
+      new Set(
+        doseLog
+          .filter((dose) => dose.dateISO === todayISO)
+          .map((dose) => doseKey(dose.medicineId, dose.dateISO, dose.time)),
+      ),
+    [doseLog, todayISO],
+  );
+
+  const handleToggleDose = (medicineId: string, time: string) => {
+    toggleDose(medicineId, todayISO, time).catch(() => {
+      Alert.alert('Não foi possível salvar', 'Tente marcar de novo.');
     });
   };
 
@@ -126,7 +127,7 @@ export default function HomeScreen() {
                       time={slot.time}
                       medicineName={medicine.name}
                       status={doseStatus(slot.time, nowHM, taken)}
-                      onToggle={() => toggleDose(slot.medicineId, slot.time)}
+                      onToggle={() => handleToggleDose(slot.medicineId, slot.time)}
                     />
                   </View>
                 );
@@ -153,6 +154,9 @@ export default function HomeScreen() {
                   key={medicine.id}
                   medicine={medicine}
                   todayISO={todayISO}
+                  onPress={() =>
+                    router.push({ pathname: '/medicine/[id]/index', params: { id: medicine.id } })
+                  }
                   onEdit={() => router.push(`/medicine/${medicine.id}/edit`)}
                 />
               ))}

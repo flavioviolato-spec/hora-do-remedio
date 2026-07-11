@@ -12,10 +12,13 @@ import type { Medicine } from '@/lib/types';
 type Props = {
   medicine: Medicine;
   todayISO: string;
+  /** Toque no card inteiro: abre o histórico do remédio. */
+  onPress: () => void;
+  /** Toque no lápis: vai direto para a edição. */
   onEdit: () => void;
 };
 
-function scheduleSummary(medicine: Medicine, todayISO: string): string {
+export function scheduleSummary(medicine: Medicine, todayISO: string): string {
   const remaining = daysRemaining(medicine, todayISO);
   const end = format(parseISO(treatmentEndISO(medicine)), 'dd/MM');
   if (!medicine.active) return 'Pausado';
@@ -27,14 +30,14 @@ function scheduleSummary(medicine: Medicine, todayISO: string): string {
   return `Faltam ${remaining} dias — termina ${end}`;
 }
 
-export function MedicineCard({ medicine, todayISO, onEdit }: Props) {
+export function MedicineCard({ medicine, todayISO, onPress, onEdit }: Props) {
   const theme = useTheme();
 
   return (
     <Pressable
-      onPress={onEdit}
+      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Editar ${medicine.name}`}
+      accessibilityLabel={`Ver histórico de ${medicine.name}`}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: theme.backgroundElement, borderColor: theme.outline },
@@ -67,7 +70,15 @@ export function MedicineCard({ medicine, todayISO, onEdit }: Props) {
         </ThemedText>
       </View>
 
-      <SymbolView name="chevron.right" size={16} tintColor={theme.textSecondary} />
+      <Pressable
+        onPress={onEdit}
+        accessibilityRole="button"
+        accessibilityLabel={`Editar ${medicine.name}`}
+        hitSlop={8}
+        style={({ pressed }) => [styles.editButton, pressed && { opacity: 0.6 }]}
+      >
+        <SymbolView name="pencil" size={18} tintColor={theme.textSecondary} />
+      </Pressable>
     </Pressable>
   );
 }
@@ -103,6 +114,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.chip,
     paddingHorizontal: Spacing.two + Spacing.half,
     paddingVertical: Spacing.one,
+  },
+  editButton: {
+    padding: Spacing.one,
   },
   timeChipText: {
     fontVariant: ['tabular-nums'],

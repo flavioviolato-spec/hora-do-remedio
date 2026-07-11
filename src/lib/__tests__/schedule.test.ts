@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  buildHistoryGrid,
   computeDesiredAlarms,
   computeFutureFirstDoses,
   daysRemaining,
@@ -297,6 +298,130 @@ describe('computeFutureFirstDoses', () => {
       '2026-07-15 18:00 med-a',
       '2026-07-20 09:00 med-b',
     ]);
+  });
+});
+
+describe('buildHistoryGrid', () => {
+  it('remédio que ainda não começou: histórico vazio', () => {
+    const futuro = makeMedicine({ startDate: '2026-08-01' });
+    expect(buildHistoryGrid(futuro, [], '2026-07-10')).toEqual([]);
+  });
+
+  it('vai do início do tratamento até HOJE, mais recente primeiro', () => {
+    const med = makeMedicine({ startDate: '2026-07-08', durationDays: 10, times: ['08:00'] });
+    const grid = buildHistoryGrid(med, [], '2026-07-10');
+    expect(grid.map((d) => d.dateISO)).toEqual(['2026-07-10', '2026-07-09', '2026-07-08']);
+  });
+
+  it('não passa do fim do tratamento mesmo que hoje seja depois', () => {
+    const med = makeMedicine({ startDate: '2026-07-01', durationDays: 3, times: ['08:00'] });
+    const grid = buildHistoryGrid(med, [], '2026-07-10');
+    expect(grid.map((d) => d.dateISO)).toEqual(['2026-07-03', '2026-07-02', '2026-07-01']);
+  });
+
+  it('marca cada célula como tomada ou não, por dia e horário', () => {
+    const med = makeMedicine({ startDate: '2026-07-09', durationDays: 5, times: ['08:00', '20:00'] });
+    const doseLog = [
+      { dateISO: '2026-07-09', time: '08:00' },
+      { dateISO: '2026-07-10', time: '20:00' },
+    ];
+    const grid = buildHistoryGrid(med, doseLog, '2026-07-10');
+
+    expect(grid).toEqual([
+      {
+        dateISO: '2026-07-10',
+        cells: [
+          { time: '08:00', taken: false },
+          { time: '20:00', taken: true },
+        ],
+      },
+      {
+        dateISO: '2026-07-09',
+        cells: [
+          { time: '08:00', taken: true },
+          { time: '20:00', taken: false },
+        ],
+      },
+    ]);
+  });
+
+  it('remédio pausado ainda mostra histórico (pausa não apaga o passado)', () => {
+    const med = makeMedicine({ startDate: '2026-07-08', durationDays: 5, active: false });
+    expect(buildHistoryGrid(med, [], '2026-07-10')).toHaveLength(3);
+  });
+
+  // --- Casos-limite adicionados pelo QA ---
+
+  it('tratamento de 1 dia que começa e termina HOJE: exatamente 1 linha', () => {
+    const med = makeMedicine({ startDate: '2026-07-10', durationDays: 1, times: ['08:00', '20:00'] });
+    const grid = buildHistoryGrid(med, [], '2026-07-10');
+    expect(grid).toEqual([
+      { dateISO: '2026-07-10', cells: [{ time: '08:00', taken: false }, { time: '20:00', taken: false }] },
+    ]);
+  });
+
+  it('remédio que começa exatamente hoje (tratamento longo): 1 linha, não mais que isso', () => {
+    const med = makeMedicine({ startDate: '2026-07-10', durationDays: 30, times: ['08:00'] });
+    const grid = buildHistoryGrid(med, [], '2026-07-10');
+    expect(grid.map((d) => d.dateISO)).toEqual(['2026-07-10']);
+  });
+
+  it('duração 365 dias: número de linhas cresce 1 por dia até hoje, sem passar do fim', () => {
+    const med = makeMedicine({ startDate: '2026-01-01', durationDays: 365, times: ['08:00'] });
+    expect(buildHistoryGrid(med, [], '2026-01-01')).toHaveLength(1);
+    expect(buildHistoryGrid(med, [], '2026-06-15')).toHaveLength(166);
+    // Depois do fim do tratamento (hoje > treatmentEndISO): trava em 365, não continua crescendo.
+    expect(buildHistoryGrid(med, [], '2026-12-31')).toHaveLength(365);
+    expect(buildHistoryGrid(med, [], '2027-06-01')).toHaveLength(365);
+  });
+
+  it('grade atravessa virada de ano corretamente (mais recente primeiro)', () => {
+    const med = makeMedicine({ startDate: '2026-12-30', durationDays: 10, times: ['08:00'] });
+    const grid = buildHistoryGrid(med, [], '2027-01-02');
+    expect(grid.map((d) => d.dateISO)).toEqual([
+      '2027-01-02',
+      '2027-01-01',
+      '2026-12-31',
+      '2026-12-30',
+    ]);
+  });
+
+  it('grade atravessa 29/02 em ano bissexto e inclui o dia extra', () => {
+    const med = makeMedicine({ startDate: '2028-02-27', durationDays: 10, times: ['08:00'] });
+    const grid = buildHistoryGrid(med, [], '2028-03-01');
+    expect(grid.map((d) => d.dateISO)).toEqual([
+      '2028-03-01',
+      '2028-02-29',
+      '2028-02-28',
+      '2028-02-27',
+    ]);
+  });
+
+  it('mesmo horário de dias DIFERENTES não vaza marcação de um dia para o outro', () => {
+    const med = makeMedicine({ startDate: '2026-07-09', durationDays: 5, times: ['08:00'] });
+    const doseLog = [{ dateISO: '2026-07-09', time: '08:00' }]; // só o dia 09
+    const grid = buildHistoryGrid(med, doseLog, '2026-07-11');
+    expect(grid).toEqual([
+      { dateISO: '2026-07-11', cells: [{ time: '08:00', taken: false }] },
+      { dateISO: '2026-07-10', cells: [{ time: '08:00', taken: false }] },
+      { dateISO: '2026-07-09', cells: [{ time: '08:00', taken: true }] },
+    ]);
+  });
+
+  it('doseLog com registro duplicado (mesma data+hora duas vezes) não gera célula duplicada nem quebra', () => {
+    const med = makeMedicine({ startDate: '2026-07-10', durationDays: 1, times: ['08:00'] });
+    const doseLog = [
+      { dateISO: '2026-07-10', time: '08:00' },
+      { dateISO: '2026-07-10', time: '08:00' },
+    ];
+    const grid = buildHistoryGrid(med, doseLog, '2026-07-10');
+    expect(grid).toEqual([{ dateISO: '2026-07-10', cells: [{ time: '08:00', taken: true }] }]);
+  });
+
+  it('remédio sem horários (defensivo): grade tem os dias mas cada linha vem sem células', () => {
+    const med = makeMedicine({ startDate: '2026-07-10', durationDays: 2, times: [] });
+    const grid = buildHistoryGrid(med, [], '2026-07-10');
+    expect(grid).toEqual([{ dateISO: '2026-07-10', cells: [] }]);
   });
 });
 

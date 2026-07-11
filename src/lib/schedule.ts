@@ -8,7 +8,7 @@
 
 import { addDays, format, parseISO } from 'date-fns';
 
-import type { Medicine } from './types';
+import type { DoseRecord, Medicine } from './types';
 
 export function toDateISO(date: Date): string {
   return format(date, 'yyyy-MM-dd');
@@ -139,4 +139,39 @@ export function computeFutureFirstDoses(
       a.time.localeCompare(b.time) ||
       a.medicineId.localeCompare(b.medicineId),
   );
+}
+
+export type HistoryCell = { time: string; taken: boolean };
+export type HistoryDay = { dateISO: string; cells: HistoryCell[] };
+
+/**
+ * Grade de histórico de um remédio: um dia por linha (do início do
+ * tratamento até HOJE, nunca além — dia futuro não tem "tomado ou não"
+ * ainda), mais recente primeiro. `doseLog` já deve vir filtrado para o
+ * remédio em questão (o chamador sabe o id; esta função só olha data+hora).
+ *
+ * Simplificação consciente: usa os horários ATUAIS do remédio pra montar
+ * todos os dias, inclusive os passados. Se o usuário editar os horários
+ * depois de já ter dias no histórico, dias antigos são redesenhados com o
+ * horário novo (não guardamos um "histórico de horários"). Aceitável pra
+ * este app; não é bug esquecido.
+ */
+export function buildHistoryGrid(
+  med: Pick<Medicine, 'startDate' | 'durationDays' | 'times'>,
+  doseLog: Pick<DoseRecord, 'dateISO' | 'time'>[],
+  todayISO: string,
+): HistoryDay[] {
+  const takenSet = new Set(doseLog.map((dose) => `${dose.dateISO}|${dose.time}`));
+  const lastDay = todayISO < treatmentEndISO(med) ? todayISO : treatmentEndISO(med);
+
+  const days: HistoryDay[] = [];
+  let cursor = med.startDate;
+  while (cursor <= lastDay) {
+    days.push({
+      dateISO: cursor,
+      cells: med.times.map((time) => ({ time, taken: takenSet.has(`${cursor}|${time}`) })),
+    });
+    cursor = toDateISO(addDays(parseISO(cursor), 1));
+  }
+  return days.reverse();
 }
