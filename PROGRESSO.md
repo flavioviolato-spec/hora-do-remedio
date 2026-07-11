@@ -47,9 +47,13 @@
 - [x] app.json: deploymentTarget 26.0 (expo-build-properties), NSAlarmKitUsageDescription, newArchEnabled
 - [x] .github/workflows/build-ios.yml: runner macos-26, prebuild → pod install → xcodebuild sem assinatura → .ipa artefato + Release em tags v*
 - [x] Verificação: tsc ok, 83/83 testes, expo export ok (Expo Go não quebra)
-- [ ] Flavio criar repo público `hora-do-remedio` no github.com e informar o usuário
-- [ ] Push (login via navegador/Git Credential Manager) → tag v0.1.0-teste → build na nuvem
-- [ ] AltStore no PC (iTunes+iCloud do site da Apple) → instalar .ipa → ALARME TOCAR NO SILENCIOSO
+- [x] Repo público criado: github.com/flavioviolato-spec/hora-do-remedio (push + tags ok)
+- [x] Builds 1–2 falharam (scheme errado: schemes[0]=EXConstants; archive sem assinatura não gera Products/Applications) — corrigidos; build 3 COMPILOU o app
+- [x] **.ipa v0.1.2-teste PUBLICADO**: github.com/flavioviolato-spec/hora-do-remedio/releases (12,9 MB; publiquei manualmente via API — o passo automático falhava por falta de `permissions: contents: write`, já corrigido para os próximos)
+- [x] DESCOBERTA IMPORTANTE: Flavio acessa este PC remotamente → AltStore deve ser instalado no PC LOCAL dele (Windows, permite instalação). iTunes/iCloud/AltServer instalados neste PC remoto ficam de reserva.
+- [ ] DECISÃO PENDENTE do Flavio: seguir gratuito (AltStore no PC local) × migrar p/ TestFlight (US$99/ano). Recomendação dada: gratuito agora, migrar se renovação semanal incomodar.
+- [ ] Flavio: Partes 1–3 do GUIA-INSTALACAO.md no PC local → instalar .ipa no iPhone
+- [ ] SMOKE TEST FINAL: Ajustes → "Testar alarme em 1 minuto" TOCANDO no silencioso
 - Novo pedido do Flavio (11/07): OCR do nome do remédio na foto — tarefa registrada, entra após a Etapa 2 (precisa de build nativo)
 
 ## Próximos passos
