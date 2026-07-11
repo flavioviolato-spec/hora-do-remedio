@@ -27,6 +27,7 @@
 ## Decisões tomadas durante a execução
 
 - Template novo do Expo usa `src/` — arquitetura do PLANO.md ajustada.
+- **Projeto rebaixado para Expo SDK 54** (11/07/2026): o Expo Go do iPhone do Flavio só suporta SDK 54 e a App Store não oferece versão mais nova para ele. iOS do aparelho confirmado 26+ (AlarmKit ok). Detalhes em DESAFIOS.md itens 7–8.
 - Nome provisório do app: **"Hora do Remédio"** (mudável até a Etapa 6).
 - 11 vulnerabilidades moderadas em dev-deps do npm — revisar na Etapa 7.
 
