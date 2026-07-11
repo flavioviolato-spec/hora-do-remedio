@@ -11,6 +11,7 @@ function makeValues(overrides: Partial<MedicineFormValues> = {}): MedicineFormVa
     durationDays: 7,
     soundId: 'classico',
     treatment: '',
+    stockCount: null,
     ...overrides,
   };
 }
@@ -145,5 +146,41 @@ describe('validateMedicine', () => {
   it('tratamento com 41 letras "aparadas" (espaços nas pontas + 41 letras): erro', () => {
     const treatment = `  ${'a'.repeat(41)}  `;
     expect(validateMedicine(makeValues({ treatment }))).not.toEqual([]);
+  });
+
+  // --- Campo "Comprimidos na caixa" (estoque, opcional) ---
+
+  it('estoque null (usuário não controla): sem erro', () => {
+    expect(validateMedicine(makeValues({ stockCount: null }))).toEqual([]);
+  });
+
+  it('estoque 0 é válido (caixa vazia, limite inferior)', () => {
+    expect(validateMedicine(makeValues({ stockCount: 0 }))).toEqual([]);
+  });
+
+  it('estoque 999 é válido (limite superior)', () => {
+    expect(validateMedicine(makeValues({ stockCount: 999 }))).toEqual([]);
+  });
+
+  it('estoque negativo (-1): erro', () => {
+    expect(validateMedicine(makeValues({ stockCount: -1 }))).not.toEqual([]);
+  });
+
+  it('estoque decimal (2.5): erro', () => {
+    expect(validateMedicine(makeValues({ stockCount: 2.5 }))).not.toEqual([]);
+  });
+
+  it('estoque acima de 999 (1000): erro', () => {
+    expect(validateMedicine(makeValues({ stockCount: 1000 }))).not.toEqual([]);
+  });
+
+  it('estoque NaN (ex.: Number("12a") vindo do formulário): erro', () => {
+    expect(validateMedicine(makeValues({ stockCount: NaN }))).not.toEqual([]);
+  });
+
+  it('a mensagem de erro do estoque é a esperada', () => {
+    expect(validateMedicine(makeValues({ stockCount: -1 }))).toContain(
+      'Quantidade de comprimidos inválida (use um número inteiro de 0 a 999).',
+    );
   });
 });

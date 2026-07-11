@@ -36,6 +36,10 @@ UI (expo-router)  →  medicines-context (estado + persistência)
 | **Sons do alarme via config plugin próprio** (`plugins/withAlarmSounds.js`, Etapa 6) | Mecanismo padrão do Expo para embutir arquivo no bundle nativo; roda sozinho dentro do `expo prebuild` já existente no CI, sem precisar de Mac. |
 | **Validade da instalação lida direto do `embedded.mobileprovision`** (Base64, Etapa 7) | É o único jeito de saber, de dentro do app, quando a assinatura gratuita do AltStore vai vencer — sem isso, o alarme para de tocar sem aviso nenhum. Lido como Base64 (não UTF-8): o arquivo é um envelope binário assinado (CMS/PKCS7), e leitura UTF-8 estrita lança erro em qualquer arquivo que não seja texto válido — achado real de QA que teria deixado o banner sempre quebrado no aparelho real (ver `provisioning.ts`). |
 | **Versão exibida em Ajustes vem da tag do git, injetada pelo CI** (`EXPO_PUBLIC_APP_VERSION`, Etapa 7) | `app.json` tem uma versão fixa (`1.0.0`) que nunca muda — não serve pra conferir qual build está instalada. A tag usada no build (`v0.5.0-teste`, etc.) já é o identificador real de cada Release; o workflow só a propaga como variável de ambiente (só em builds de tag, nunca em build manual numa branch) em vez de exigir bump manual de versão a cada release. |
+| **Sugestão de "Tratamento" = memória do usuário + lista curada** (Etapa 9) | Memória (`treatmentMemory` no Store, nome normalizado → tratamento) tem prioridade e sobrevive à exclusão do remédio (tratamentos acabam e são excluídos — sem persistência separada, o app "esqueceria" tudo). Lista curada de 23 substâncias comuns verificada item a item pelo revisor de segurança (correção farmacológica dos rótulos leigos). Sempre sugestão editável, só preenche campo vazio. |
+| **Estoque de comprimidos acompanha a marcação de dose, na mesma gravação atômica** (Etapa 9) | Marcar dose desconta 1, desmarcar devolve (piso 0/teto 999). Fica dentro do mesmo `enqueue` do toggleDose: doseLog e estoque nunca ficam meio-atualizados (se a gravação falha, nada muda). Campo opcional — sem valor, comportamento antigo intacto. |
+| **Backup via janela de compartilhar do iOS, sem OAuth/nuvem própria** (Etapa 9) | Mesmo resultado (arquivo no Drive/iCloud/e-mail do usuário) sem credenciais Google, sem código de rede no app (que continua 100% offline) e sem senha passando pelo app. Restauração passa TUDO por `sanitizeStore` + confirmação destrutiva + `replaceStore` (mesma fila de gravação). Fotos ficam de fora (photoUri é anulado na restauração — caminho absoluto não vale em outro aparelho). Arquivo temporário é apagado do cache após o share. |
+| **Relatório de adesão como texto simples via Share nativo** (Etapa 9) | `Share.share` do React Native = zero dependência nova; texto simples cola em qualquer lugar (WhatsApp do médico, e-mail, notas). Sai do app só por ação explícita do usuário. |
 | **OCR do nome do remédio via pacote pronto** (`expo-text-extractor`, com `@dariyd/react-native-text-recognition` e módulo Swift próprio como planos B/C) | Confirmado com dados reais de npm/GitHub (não só descrição): `expo-text-extractor` está ativo (push há ~2,5 semanas, 70 estrelas). Usa a Expo Modules API (mesma base dos módulos oficiais do Expo já usados no projeto) para chamar o Vision da Apple no iOS — mesma tecnologia que um módulo próprio usaria, já escrita, com risco de manutenção aceitável porque o OCR é conveniência, não função crítica. Decisão condicionada a um teste real de instalação antes de integrar na tela — ver seção dedicada abaixo. |
 
 ## Concorrência no reconciliador de alarmes (10/07/2026)
@@ -293,9 +297,11 @@ exatamente esta seção.
 
 ```ts
 Medicine  { id(uuid), name, photoUri|null, times["HH:MM"], startDate"YYYY-MM-DD",
-            durationDays(1–365), soundId, treatment?(≤40 chars), active, createdAt }
+            durationDays(1–365), soundId, treatment?(≤40 chars),
+            stockCount?(0–999), active, createdAt }
 DoseRecord{ medicineId, dateISO, time, takenAt }
-Store     { version:1, medicines[], doseLog[] }   // AsyncStorage "hora-do-remedio/store"
+Store     { version:1, medicines[], doseLog[],
+            treatmentMemory{nomeNormalizado→tratamento, ≤200} }   // AsyncStorage "hora-do-remedio/store"
 ```
 
 ## Estrutura de pastas
@@ -312,11 +318,13 @@ __mocks__/        mock oficial do AsyncStorage p/ jest
 
 ## Qualidade
 
-- **248 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker, provisioning, app-version, ocr, ocr-heuristics, medicine-form, routing) — rodar com `npm test`
+- **381 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker, provisioning, app-version, ocr, ocr-heuristics, medicine-form, medicine-card, routing, treatment-suggestions, report, backup + integração) — rodar com `npm test`
 - Ciclo obrigatório por etapa: testador → revisor-seguranca → revisor-codigo → correções → testes de novo (CLAUDE.md)
-- Última revisão de segurança: 11/07/2026 (Etapa 8 — OCR do nome do remédio) — aprovada sem
-  itens críticos; confirmado por leitura do Swift instalado que o OCR roda 100% local (Vision),
-  sem rede e sem logar texto/foto (dado de saúde)
-- Última revisão de código: 11/07/2026 (Etapa 8), aprovada sem itens críticos (melhorias
-  aplicadas: log silencioso quando o módulo nativo não existe no Expo Go, proteção contra
-  desmontagem no `runOcr`, constante única `MAX_NAME_LENGTH` compartilhada)
+- Última revisão de segurança: 11/07/2026 (Etapa 9 — sugestão de tratamento, estoque,
+  relatório, backup) — aprovada sem itens críticos; **lista curada de 23 associações
+  remédio→tratamento verificada item a item** (todas corretas como rótulo leigo); achados
+  baixos aplicados (arquivo de backup apagado do cache após o share)
+- Última revisão de código: 11/07/2026 (Etapa 9) — 1 crítico corrigido (photoUri anulado na
+  restauração de backup — fotos fantasma em aparelho novo) + recomendados aplicados
+  (helper `errorMessage`, títulos de teste "DEFEITO" atualizados, plural nos alertas,
+  chaves da memória normalizadas na sanitização)

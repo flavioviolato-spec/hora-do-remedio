@@ -16,6 +16,8 @@ export type MedicineFormValues = {
   soundId: string;
   /** Para que é o remédio, ex.: "Dor". Vazio = não informado. */
   treatment: string;
+  /** Comprimidos na caixa. null = usuário não quer controlar estoque. */
+  stockCount: number | null;
 };
 
 /** Retorna a lista de problemas; vazia = tudo certo. */
@@ -48,6 +50,14 @@ export function validateMedicine(values: MedicineFormValues): string[] {
   }
   if (values.treatment.trim().length > 40) {
     errors.push('O tratamento está longo demais (máximo 40 letras).');
+  }
+  // Estoque é opcional (null = não controla); quando informado, precisa ser
+  // um inteiro plausível pra uma caixa de remédio.
+  if (
+    values.stockCount !== null &&
+    (!Number.isInteger(values.stockCount) || values.stockCount < 0 || values.stockCount > 999)
+  ) {
+    errors.push('Quantidade de comprimidos inválida (use um número inteiro de 0 a 999).');
   }
 
   return errors;

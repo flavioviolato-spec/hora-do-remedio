@@ -13,7 +13,15 @@ iPhone no silencioso e a tela bloqueada.
   ao fotografar, o app tenta **ler o nome impresso** e preencher sozinho (OCR pela
   câmera do iPhone, 100% offline); é só uma sugestão, sempre editável
 - Campo opcional **"Tratamento"** (ex.: Dor, Náusea e vômito, Antibiótico) — aparece na
-  Home e no histórico, para lembrar rapidamente para que serve cada remédio
+  Home e no histórico; o app **sugere sozinho** a partir do nome (lista de remédios
+  comuns + o que você mesmo já preencheu antes), sempre editável
+- **Controle de estoque** opcional: informe quantos comprimidos tem na caixa; cada
+  dose marcada desconta 1, e o card avisa quando estiver acabando
+- **Relatório para consulta**: botão no histórico gera um resumo do tratamento
+  (doses tomadas, % de adesão) pra compartilhar com o médico
+- **Backup e restauração**: gera um arquivo com seus dados pra guardar onde quiser
+  (Google Drive, iCloud, e-mail) pela janela de compartilhar do iPhone — e restaura
+  de volta quando precisar (as fotos não vão no backup, só os dados)
 - Vários **horários por dia** e **duração em dias** (ex.: 3× ao dia por 7 dias)
 - Escolhe o **som do alarme** entre 5 opções (padrão do iPhone + 4 customizados),
   com prévia antes de escolher
@@ -48,7 +56,7 @@ Checklist de teste manual no iPhone: [TESTES-NO-IPHONE.md](TESTES-NO-IPHONE.md).
 | 6 | Sons customizados + ícone/splash | ✅ |
 | 7 | Entrega v1.0 (este README, checklist, banner de validade) | ✅ |
 | 8 | OCR (ler nome do remédio na foto) + campo Tratamento + versão em Ajustes | ✅ (código; falta confirmar OCR no aparelho) |
-| — | Sugerir o Tratamento pelo nome do remédio (lista curada + histórico) | planejado |
+| 9 | Sugestão de Tratamento + estoque de comprimidos + relatório + backup | ✅ (código; falta teste no aparelho) |
 
 ## Distribuição (sem conta Apple paga)
 

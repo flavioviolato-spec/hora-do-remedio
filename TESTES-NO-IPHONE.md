@@ -79,6 +79,48 @@ Cadastre um remédio de teste com horário poucos minutos à frente para cada ca
       sem misturar nome/som
 - [ ] Cadastre 2 remédios no MESMO horário: os dois tocam (não só um)
 
+## 10. Leitura do nome pela foto (OCR)
+
+- [ ] Fotografe uma caixinha de genérico com nome em duas linhas (ex.:
+      "cloridrato de ..."): o nome vem COMPLETO, sem o laboratório do topo
+- [ ] Aparece "Lendo o nome da caixinha…" enquanto processa
+- [ ] Foto borrada / sem texto: nada é preenchido, sem erro na tela
+- [ ] Se você já digitou um nome, a leitura NÃO sobrescreve
+
+## 11. Sugestão de Tratamento
+
+- [ ] Digite "dipirona" no nome e toque fora do campo: "Tratamento" sugere
+      "Dor e febre" (só se estava vazio)
+- [ ] Salve um remédio com um tratamento SEU (ex.: "Enxaqueca"); exclua-o;
+      cadastre de novo com o mesmo nome: a sugestão é o SEU tratamento
+- [ ] A sugestão nunca sobrescreve um tratamento já preenchido
+
+## 12. Estoque de comprimidos
+
+- [ ] Cadastre com "Comprimidos na caixa" = 5: o card mostra "5 comprimidos restantes"
+- [ ] Marque uma dose: vira 4; desmarque: volta a 5
+- [ ] Com estoque baixo (≤ 2 dias de doses), o aviso fica vermelho ("Acabando…")
+- [ ] Com estoque 0: "Comprimidos acabaram — reponha a caixa"
+- [ ] Remédio sem estoque informado: nenhum aviso aparece (como antes)
+- [ ] Editar o remédio e mudar/limpar o estoque funciona
+
+## 13. Relatório para consulta
+
+- [ ] Na tela de histórico, "Compartilhar relatório" abre a janela do iOS com o
+      texto (nome, período, % de adesão, grade por dia)
+- [ ] Cancelar a janela não mostra nenhum erro
+
+## 14. Backup e restauração
+
+- [ ] Ajustes → "Fazer backup": a janela de compartilhar abre; salve no
+      Arquivos/Drive e confira que o arquivo .json existe
+- [ ] "Restaurar backup" com o arquivo salvo: mostra a confirmação com a
+      contagem certa de remédios/doses; ao confirmar, tudo volta
+- [ ] Após restaurar, os alarmes continuam tocando (reconciliação automática)
+- [ ] As fotos NÃO voltam no backup (esperado — aparece o ícone de comprimidos
+      no lugar; é só tirar a foto de novo se quiser)
+- [ ] Escolher um arquivo qualquer (não-backup): "Arquivo inválido", sem travar
+
 ---
 
 **Resultado geral:** ⬜ Tudo certo | ⬜ Achei problema(s) — descrever abaixo

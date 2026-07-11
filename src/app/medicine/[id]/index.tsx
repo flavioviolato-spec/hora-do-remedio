@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { scheduleSummary } from '@/components/medicine-card';
 import { ThemedText } from '@/components/themed-text';
@@ -12,8 +12,9 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useMedicines } from '@/lib/medicines-context';
+import { buildAdherenceReport } from '@/lib/report';
 import { buildHistoryGrid, toDateISO } from '@/lib/schedule';
-import { capitalize } from '@/lib/text';
+import { capitalize, errorMessage } from '@/lib/text';
 
 function formatDayLabel(dateISO: string): string {
   const date = parseISO(dateISO);
@@ -37,6 +38,21 @@ export default function MedicineHistoryScreen() {
     const medicineDoseLog = doseLog.filter((dose) => dose.medicineId === medicine.id);
     return buildHistoryGrid(medicine, medicineDoseLog, todayISO);
   }, [medicine, doseLog, todayISO]);
+
+  async function shareReport() {
+    if (!medicine) return;
+    try {
+      // Cancelar a janela NÃO é erro: Share.share resolve com "dismissedAction".
+      await Share.share({ message: buildAdherenceReport(medicine, doseLog, todayISO) });
+    } catch (error) {
+      // Só a mensagem do erro — o relatório tem dados de saúde e não vai a log.
+      console.warn(
+        '[relatório] compartilhamento falhou:',
+        errorMessage(error),
+      );
+      Alert.alert('Não foi possível compartilhar. Tente de novo.');
+    }
+  }
 
   if (!medicine) {
     return (
@@ -131,6 +147,22 @@ export default function MedicineHistoryScreen() {
             ))}
           </View>
         )}
+
+        <Pressable
+          onPress={shareReport}
+          accessibilityRole="button"
+          accessibilityLabel={`Compartilhar relatório de ${medicine.name}`}
+          style={({ pressed }) => [
+            styles.shareButton,
+            { borderColor: theme.outline, backgroundColor: theme.backgroundElement },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          <SymbolView name="square.and.arrow.up" size={18} tintColor={theme.brand} />
+          <ThemedText type="smallBold" themeColor="brand">
+            Compartilhar relatório
+          </ThemedText>
+        </Pressable>
       </ScrollView>
     </ThemedView>
   );
@@ -203,6 +235,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    paddingVertical: Spacing.three,
   },
   cell: {
     flexDirection: 'row',

@@ -18,18 +18,8 @@
  *     Genérico", "Lei nº 9.787", "Venda sob prescrição médica"…).
  */
 
+import { normalize } from './text';
 import { MAX_NAME_LENGTH } from './validation';
-
-/** Minúsculas + sem acento, pra comparar sem depender de como o Vision
- * leu ("Biosintética" ≈ "biosintetica"). */
-function normalize(text: string): string {
-  // NFD separa "é" em "e" + acento combinante; a faixa U+0300–U+036F
-  // remove só os acentos, preservando a letra base.
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
 
 /** Laboratórios comuns no Brasil — aparecem no topo da caixa, ANTES do
  * nome do remédio, e não são o nome de remédio nenhum. Comparação por

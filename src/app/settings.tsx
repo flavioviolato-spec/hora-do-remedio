@@ -1,7 +1,8 @@
 import { addSeconds, format } from 'date-fns';
+import { errorMessage } from '@/lib/text';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,6 +11,8 @@ import { useProvisioningInfo } from '@/hooks/use-provisioning-info';
 import { useTheme } from '@/hooks/use-theme';
 import { getAlarmPort } from '@/lib/alarm';
 import { appVersionLabel } from '@/lib/app-version';
+import { exportBackup, parseBackup, pickBackupFile } from '@/lib/backup';
+import { useMedicines } from '@/lib/medicines-context';
 
 /**
  * Ajustes + área de teste do alarme (o "smoke test" da Etapa 2):
@@ -20,9 +23,11 @@ export default function SettingsScreen() {
   const alarmPort = getAlarmPort();
   const isReal = alarmPort.isAvailable();
   const { info: provisioning } = useProvisioningInfo();
+  const { medicines, doseLog, treatmentMemory, replaceStore } = useMedicines();
 
   const [testAlarmId, setTestAlarmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   async function scheduleTestAlarm() {
     setBusy(true);
@@ -50,7 +55,7 @@ export default function SettingsScreen() {
     } catch (error) {
       console.warn(
         '[teste de alarme] falhou:',
-        error instanceof Error ? error.message : 'erro desconhecido',
+        errorMessage(error),
       );
       Alert.alert('Não foi possível agendar', 'Tente de novo.');
     } finally {
@@ -65,8 +70,62 @@ export default function SettingsScreen() {
     Alert.alert('Teste cancelado', 'O alarme de teste foi removido.');
   }
 
+  async function makeBackup() {
+    setBackupBusy(true);
+    try {
+      const ok = await exportBackup({ version: 1, medicines, doseLog, treatmentMemory });
+      // Sucesso é silencioso: a própria janela de compartilhar é o feedback.
+      if (!ok) Alert.alert('Não foi possível gerar o backup', 'Tente de novo.');
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function restoreBackup() {
+    setBackupBusy(true);
+    try {
+      const raw = await pickBackupFile();
+      if (raw === null) return; // cancelou o seletor — não é erro
+      const parsed = parseBackup(raw);
+      if (!parsed) {
+        Alert.alert('Arquivo inválido', 'Escolha um backup gerado pelo Hora do Remédio.');
+        return;
+      }
+      const meds = `${parsed.medicineCount} ${parsed.medicineCount === 1 ? 'remédio' : 'remédios'}`;
+      const doses = `${parsed.doseCount} ${parsed.doseCount === 1 ? 'registro' : 'registros'} de dose`;
+      Alert.alert(
+        'Restaurar backup',
+        `Substituir os dados atuais por ${meds} e ${doses} do backup? Os dados de agora serão perdidos.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Substituir',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Alarmes se ajustam sozinhos: alarm-sync-context observa
+                // `medicines` (useEffect) e reconcilia a cada mudança da loja.
+                await replaceStore(parsed.store);
+                Alert.alert('Backup restaurado', 'Seus remédios e histórico foram substituídos pelos do arquivo.');
+              } catch (error) {
+                console.warn(
+                  '[backup] restauração falhou:',
+                  errorMessage(error),
+                );
+                Alert.alert('Não foi possível restaurar', 'Tente de novo.');
+              }
+            },
+          },
+        ],
+      );
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View
         style={[
           styles.statusBox,
@@ -137,6 +196,43 @@ export default function SettingsScreen() {
         </Pressable>
       )}
 
+      <ThemedText type="heading" style={styles.sectionTitle}>
+        Backup
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        Gera um arquivo com seus remédios e histórico para você guardar onde quiser (Google Drive,
+        iCloud, e-mail). As fotos não vão no backup — só os dados.
+      </ThemedText>
+
+      <Pressable
+        onPress={makeBackup}
+        disabled={backupBusy}
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.primaryButton,
+          { backgroundColor: theme.brand },
+          (pressed || backupBusy) && { opacity: 0.7 },
+        ]}
+      >
+        <ThemedText type="heading" style={{ color: theme.onBrand }}>
+          {backupBusy ? 'Aguarde…' : 'Fazer backup'}
+        </ThemedText>
+      </Pressable>
+
+      <Pressable
+        onPress={restoreBackup}
+        disabled={backupBusy}
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.secondaryButton,
+          (pressed || backupBusy) && { opacity: 0.7 },
+        ]}
+      >
+        <ThemedText type="smallBold" themeColor="brand">
+          Restaurar backup
+        </ThemedText>
+      </Pressable>
+
       <View style={styles.footer}>
         <ThemedText type="small" themeColor="textSecondary">
           Hora do Remédio — dados guardados somente neste aparelho.
@@ -145,13 +241,17 @@ export default function SettingsScreen() {
           Versão instalada: {appVersionLabel(process.env.EXPO_PUBLIC_APP_VERSION)}
         </ThemedText>
       </View>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flexGrow (não flex): é contentContainerStyle de ScrollView — ocupa a
+    // tela toda quando o conteúdo é curto (footer no rodapé via marginTop
+    // auto) e cresce além dela quando não cabe.
+    flexGrow: 1,
     padding: Spacing.three,
     gap: Spacing.three,
   },

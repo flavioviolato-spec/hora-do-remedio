@@ -5,7 +5,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { errorMessage, normalize } from './text';
 
+import { TREATMENT_MEMORY_LIMIT } from './treatment-suggestions';
 import { TIME_RE, isValidDateISO, type DoseRecord, type Medicine } from './types';
 
 const STORE_KEY = 'hora-do-remedio/store';
@@ -18,9 +20,12 @@ export type Store = {
   version: 1;
   medicines: Medicine[];
   doseLog: DoseRecord[];
+  /** Memória de sugestões: nome do remédio normalizado → tratamento que o
+   * usuário usou da última vez. Sobrevive à exclusão do remédio. */
+  treatmentMemory: Record<string, string>;
 };
 
-export const EMPTY_STORE: Store = { version: 1, medicines: [], doseLog: [] };
+export const EMPTY_STORE: Store = { version: 1, medicines: [], doseLog: [], treatmentMemory: {} };
 
 function isValidMedicine(value: unknown): value is Medicine {
   if (typeof value !== 'object' || value === null) return false;
@@ -42,6 +47,13 @@ function isValidMedicine(value: unknown): value is Medicine {
     typeof med.soundId === 'string' &&
     (med.treatment === undefined ||
       (typeof med.treatment === 'string' && med.treatment.trim().length <= 40)) &&
+    // Estoque é opcional E posterior ao lançamento: remédio gravado ANTES da
+    // feature não tem o campo e continua válido (compatibilidade retroativa).
+    (med.stockCount === undefined ||
+      (typeof med.stockCount === 'number' &&
+        Number.isInteger(med.stockCount) &&
+        med.stockCount >= 0 &&
+        med.stockCount <= 999)) &&
     typeof med.active === 'boolean' &&
     typeof med.createdAt === 'string'
   );
@@ -60,6 +72,29 @@ function isValidDose(value: unknown): value is DoseRecord {
   );
 }
 
+/** Aceita entradas válidas da memória de tratamentos, descarta as demais
+ * individualmente (uma entrada ruim não derruba as boas). Loja gravada
+ * ANTES da feature não tem o campo — vira `{}` sem perder nada
+ * (compatibilidade retroativa). Cap de TREATMENT_MEMORY_LIMIT entradas. */
+function sanitizeTreatmentMemory(value: unknown): Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const memory: Record<string, string> = {};
+  let count = 0;
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    if (count >= TREATMENT_MEMORY_LIMIT) break;
+    if (typeof rawValue !== 'string') continue;
+    // normalize: chave com acento/maiúscula (backup editado à mão) nunca
+    // casaria com a busca, que normaliza — alinhar aqui evita peso morto.
+    const key = normalize(rawKey).trim();
+    const treatment = rawValue.trim();
+    if (key.length === 0 || key.length > 80) continue;
+    if (treatment.length === 0 || treatment.length > 40) continue;
+    memory[key] = treatment;
+    count++;
+  }
+  return memory;
+}
+
 /** Aceita o que for válido, descarta o resto. Versão desconhecida = loja vazia. */
 export function sanitizeStore(parsed: unknown): Store {
   if (typeof parsed !== 'object' || parsed === null) return EMPTY_STORE;
@@ -67,7 +102,8 @@ export function sanitizeStore(parsed: unknown): Store {
   if (raw.version !== 1) return EMPTY_STORE;
   const medicines = Array.isArray(raw.medicines) ? raw.medicines.filter(isValidMedicine) : [];
   const doseLog = Array.isArray(raw.doseLog) ? raw.doseLog.filter(isValidDose) : [];
-  return { version: 1, medicines, doseLog };
+  const treatmentMemory = sanitizeTreatmentMemory(raw.treatmentMemory);
+  return { version: 1, medicines, doseLog, treatmentMemory };
 }
 
 export async function loadStore(): Promise<Store> {
@@ -79,7 +115,7 @@ export async function loadStore(): Promise<Store> {
     // Só a mensagem: o conteúdo da loja tem dados de saúde e não deve ir a log.
     console.warn(
       '[storage] loja corrompida, começando vazia:',
-      error instanceof Error ? error.message : 'erro desconhecido',
+      errorMessage(error),
     );
     return EMPTY_STORE;
   }

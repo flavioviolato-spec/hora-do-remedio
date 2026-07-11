@@ -85,6 +85,10 @@ function findNameInput(tree: ReturnType<typeof create>) {
   return tree.root.findByProps({ accessibilityLabel: 'Nome do remédio' });
 }
 
+function findTreatmentInput(tree: ReturnType<typeof create>) {
+  return tree.root.findByProps({ accessibilityLabel: 'Tratamento' });
+}
+
 /** Acha o Pressable "Da galeria" (não tem accessibilityLabel próprio — o
  * texto está no filho ThemedText — por isso localizamos o texto e subimos
  * até o Pressable ancestral mais próximo). Evita `JSON.stringify` em
@@ -240,5 +244,118 @@ describe('MedicineForm - OCR do nome do remédio', () => {
     await flushMicrotasks();
 
     expect(findNameInput(tree!).props.value).toBe('Xarope Guaporé');
+  });
+});
+
+describe('MedicineForm - sugestão automática de tratamento', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /** Dispara o fluxo completo "escolher foto → OCR devolve `lines`". */
+  async function runOcrFlow(tree: ReturnType<typeof create>, lines: string[]) {
+    const resolvers = makeManualOcr();
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'foto-tratamento.jpg' }],
+    });
+    const libraryPressable = findLibraryPressable(tree);
+    await act(async () => {
+      await (libraryPressable.props.onPress as () => Promise<void>)();
+    });
+    await act(async () => {
+      resolvers[0](lines);
+    });
+    await flushMicrotasks();
+  }
+
+  it('aplica a sugestão da lista curada depois que o OCR preenche o nome, com o tratamento vazio', async () => {
+    let tree: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<MedicineForm submitLabel="Salvar" onSubmit={async () => {}} />);
+    });
+
+    await runOcrFlow(tree!, ['Amoxicilina']);
+
+    expect(findNameInput(tree!).props.value).toBe('Amoxicilina');
+    expect(findTreatmentInput(tree!).props.value).toBe('Antibiótico');
+  });
+
+  it('memória do usuário (prop treatmentMemory) vence a lista curada', async () => {
+    let tree: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(
+        <MedicineForm
+          submitLabel="Salvar"
+          onSubmit={async () => {}}
+          treatmentMemory={{ amoxicilina: 'Dor de garganta' }}
+        />,
+      );
+    });
+
+    await runOcrFlow(tree!, ['Amoxicilina']);
+
+    expect(findTreatmentInput(tree!).props.value).toBe('Dor de garganta');
+  });
+
+  it('NÃO sobrescreve tratamento já preenchido pelo usuário quando o OCR termina', async () => {
+    let tree: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<MedicineForm submitLabel="Salvar" onSubmit={async () => {}} />);
+    });
+
+    // Usuário já escreveu o tratamento dele ANTES da leitura terminar.
+    await act(async () => {
+      (findTreatmentInput(tree!).props.onChangeText as (t: string) => void)('Dor de dente');
+    });
+
+    await runOcrFlow(tree!, ['Amoxicilina']);
+
+    expect(findNameInput(tree!).props.value).toBe('Amoxicilina');
+    expect(findTreatmentInput(tree!).props.value).toBe('Dor de dente');
+  });
+
+  it('nome digitado à mão sugere no onEndEditing (terminou de digitar), sem match → não mexe', async () => {
+    let tree: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<MedicineForm submitLabel="Salvar" onSubmit={async () => {}} />);
+    });
+
+    // Com match (acentuação no nome não atrapalha):
+    await act(async () => {
+      (findNameInput(tree!).props.onChangeText as (t: string) => void)('Dipirona Sódica');
+    });
+    await act(async () => {
+      (findNameInput(tree!).props.onEndEditing as () => void)();
+    });
+    expect(findTreatmentInput(tree!).props.value).toBe('Dor e febre');
+
+    // Usuário apaga a sugestão (pode!) e troca o nome por um sem match:
+    await act(async () => {
+      (findTreatmentInput(tree!).props.onChangeText as (t: string) => void)('');
+      (findNameInput(tree!).props.onChangeText as (t: string) => void)('Xarope Guaporé');
+    });
+    await act(async () => {
+      (findNameInput(tree!).props.onEndEditing as () => void)();
+    });
+    expect(findTreatmentInput(tree!).props.value).toBe('');
+  });
+
+  it('OCR que NÃO aplicou o nome (usuário já tinha digitado) não sugere tratamento a partir da foto', async () => {
+    let tree: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<MedicineForm submitLabel="Salvar" onSubmit={async () => {}} />);
+    });
+
+    // Usuário digitou o nome ANTES do OCR terminar — o nome da foto é descartado,
+    // então a sugestão baseada nele também deve ser.
+    await act(async () => {
+      (findNameInput(tree!).props.onChangeText as (t: string) => void)('Xarope Guaporé');
+    });
+
+    await runOcrFlow(tree!, ['Amoxicilina']);
+
+    expect(findNameInput(tree!).props.value).toBe('Xarope Guaporé');
+    expect(findTreatmentInput(tree!).props.value).toBe('');
   });
 });

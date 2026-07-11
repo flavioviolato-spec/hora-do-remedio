@@ -14,7 +14,7 @@ export default function EditMedicineScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { medicines, updateMedicine, removeMedicine } = useMedicines();
+  const { medicines, updateMedicine, removeMedicine, treatmentMemory } = useMedicines();
 
   const medicine = medicines.find((med) => med.id === id);
 
@@ -40,6 +40,8 @@ export default function EditMedicineScreen() {
       durationDays: values.durationDays,
       soundId: values.soundId,
       treatment: values.treatment,
+      // null do formulário ("não controlar") limpa o campo no remédio salvo.
+      stockCount: values.stockCount ?? undefined,
     });
     router.back();
   }
@@ -84,7 +86,12 @@ export default function EditMedicineScreen() {
         />
       </View>
 
-      <MedicineForm initial={medicine} submitLabel="Salvar alterações" onSubmit={handleSubmit} />
+      <MedicineForm
+        initial={medicine}
+        submitLabel="Salvar alterações"
+        onSubmit={handleSubmit}
+        treatmentMemory={treatmentMemory}
+      />
 
       <Pressable
         onPress={confirmDelete}

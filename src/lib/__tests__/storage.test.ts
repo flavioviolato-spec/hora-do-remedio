@@ -31,7 +31,7 @@ describe('loadStore / saveStore', () => {
   });
 
   it('salva e recarrega preservando acentuação e ç', async () => {
-    const store: Store = { version: 1, medicines: [makeMedicine()], doseLog: [] };
+    const store: Store = { version: 1, medicines: [makeMedicine()], doseLog: [], treatmentMemory: {} };
     await saveStore(store);
     const loaded = await loadStore();
     expect(loaded.medicines).toHaveLength(1);
@@ -55,13 +55,19 @@ describe('loadStore / saveStore', () => {
       doseLog: [
         { medicineId: 'med-1', dateISO: '2026-07-10', time: '08:00', takenAt: '2026-07-10T08:05:00.000Z' },
       ],
+      treatmentMemory: {},
     };
     await saveStore(store);
     expect((await loadStore()).doseLog).toHaveLength(1);
   });
 
   it('salva e recarrega remédio com treatment preservando acentuação e ç', async () => {
-    const store: Store = { version: 1, medicines: [makeMedicine({ treatment: 'Náusea e vômito' })], doseLog: [] };
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ treatment: 'Náusea e vômito' })],
+      doseLog: [],
+      treatmentMemory: {},
+    };
     await saveStore(store);
     const loaded = await loadStore();
     expect(loaded.medicines[0].treatment).toBe('Náusea e vômito');
@@ -134,7 +140,12 @@ describe('sanitizeStore', () => {
 
   it('medicines/doseLog que não são arrays: viram arrays vazios', () => {
     const dirty = { version: 1, medicines: 'x', doseLog: { a: 1 } };
-    expect(sanitizeStore(dirty)).toEqual({ version: 1, medicines: [], doseLog: [] });
+    expect(sanitizeStore(dirty)).toEqual({
+      version: 1,
+      medicines: [],
+      doseLog: [],
+      treatmentMemory: {},
+    });
   });
 
   it('filtra remédio com lista de horários vazia', () => {
@@ -264,5 +275,142 @@ describe('sanitizeStore', () => {
     const result = sanitizeStore(dirty);
     expect(result.medicines).toHaveLength(1);
     expect(result.medicines[0].treatment).toBe('');
+  });
+
+  // --- Campo "Comprimidos na caixa" (stockCount, opcional) ---
+
+  it('compatibilidade retroativa CRÍTICA: remédio salvo ANTES da feature (sem stockCount) continua válido', () => {
+    const semEstoque = makeMedicine(); // makeMedicine() não inclui stockCount
+    expect('stockCount' in semEstoque).toBe(false);
+    const dirty = { version: 1, medicines: [semEstoque], doseLog: [] };
+    const result = sanitizeStore(dirty);
+    expect(result.medicines).toHaveLength(1);
+    expect(result.medicines[0].stockCount).toBeUndefined();
+  });
+
+  it('remédio com stockCount válido (0, 20, 999) é aceito', () => {
+    const dirty = {
+      version: 1,
+      medicines: [
+        makeMedicine({ id: 'a', stockCount: 0 }),
+        makeMedicine({ id: 'b', stockCount: 20 }),
+        makeMedicine({ id: 'c', stockCount: 999 }),
+      ],
+      doseLog: [],
+    };
+    const result = sanitizeStore(dirty);
+    expect(result.medicines).toHaveLength(3);
+    expect(result.medicines.map((m) => m.stockCount)).toEqual([0, 20, 999]);
+  });
+
+  it('stockCount negativo é rejeitado — o remédio inteiro cai (comportamento padrão do sanitize)', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ stockCount: -1 })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('stockCount decimal (2.5) é rejeitado — o remédio inteiro cai', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ stockCount: 2.5 })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('stockCount acima de 999 (1000) é rejeitado — o remédio inteiro cai', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ stockCount: 1000 })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('stockCount em string ("20") é rejeitado — o remédio inteiro cai', () => {
+    const dirty = {
+      version: 1,
+      medicines: [makeMedicine({ stockCount: '20' as unknown as number })],
+      doseLog: [],
+    };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('stockCount válido sobrevive à ida e volta salvar/carregar', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ stockCount: 15 })],
+      doseLog: [],
+      treatmentMemory: {},
+    };
+    await saveStore(store);
+    expect((await loadStore()).medicines[0].stockCount).toBe(15);
+  });
+
+  // --- Memória de sugestões de tratamento (treatmentMemory) ---
+
+  it('compatibilidade retroativa CRÍTICA: loja salva ANTES da feature (sem treatmentMemory) vira {} sem perder remédios nem doses', () => {
+    const antiga = {
+      version: 1,
+      medicines: [makeMedicine()],
+      doseLog: [
+        { medicineId: 'med-1', dateISO: '2026-07-10', time: '08:00', takenAt: '2026-07-10T08:05:00.000Z' },
+      ],
+    };
+    const result = sanitizeStore(antiga);
+    expect(result.treatmentMemory).toEqual({});
+    expect(result.medicines).toHaveLength(1);
+    expect(result.doseLog).toHaveLength(1);
+  });
+
+  it('treatmentMemory com tipo errado (string, array, null) vira {} sem derrubar o resto', () => {
+    for (const invalido of ['x', ['a'], null, 42]) {
+      const dirty = { version: 1, medicines: [makeMedicine()], doseLog: [], treatmentMemory: invalido };
+      const result = sanitizeStore(dirty);
+      expect(result.treatmentMemory).toEqual({});
+      expect(result.medicines).toHaveLength(1);
+    }
+  });
+
+  it('entrada inválida da memória é descartada individualmente, sem derrubar as válidas', () => {
+    const dirty = {
+      version: 1,
+      medicines: [],
+      doseLog: [],
+      treatmentMemory: {
+        dipirona: 'Dor e febre', // válida
+        '': 'Sem chave', // chave vazia
+        '   ': 'Só espaços na chave', // chave vazia após trim
+        ['x'.repeat(81)]: 'Chave longa demais', // chave > 80
+        'valor-vazio': '   ', // valor vazio após trim
+        'valor-longo': 'a'.repeat(41), // valor > 40
+        'valor-numerico': 123 as unknown as string, // valor não-string
+        'amoxicilina 500mg': '  Antibiótico  ', // válida (valor é aparado)
+      },
+    };
+    const result = sanitizeStore(dirty);
+    expect(result.treatmentMemory).toEqual({
+      dipirona: 'Dor e febre',
+      'amoxicilina 500mg': 'Antibiótico',
+    });
+  });
+
+  it('chave de exatamente 80 e valor de exatamente 40 caracteres passam (limites superiores)', () => {
+    const dirty = {
+      version: 1,
+      medicines: [],
+      doseLog: [],
+      treatmentMemory: { ['k'.repeat(80)]: 'v'.repeat(40) },
+    };
+    expect(Object.keys(sanitizeStore(dirty).treatmentMemory)).toHaveLength(1);
+  });
+
+  it('memória com mais de 200 entradas é cortada em 200 na sanitização', () => {
+    const excesso: Record<string, string> = {};
+    for (let i = 0; i < 250; i++) excesso[`remedio ${i}`] = `Tratamento ${i}`;
+    const dirty = { version: 1, medicines: [], doseLog: [], treatmentMemory: excesso };
+    expect(Object.keys(sanitizeStore(dirty).treatmentMemory)).toHaveLength(200);
+  });
+
+  it('memória válida sobrevive à ida e volta salvar/carregar, com acentuação e ç', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [],
+      doseLog: [],
+      treatmentMemory: { 'dipirona sodica': 'Infecção e ção' },
+    };
+    await saveStore(store);
+    expect((await loadStore()).treatmentMemory).toEqual({ 'dipirona sodica': 'Infecção e ção' });
   });
 });

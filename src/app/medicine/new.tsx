@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { errorMessage } from '@/lib/text';
 import { Alert } from 'react-native';
 
 import { MedicineForm } from '@/components/medicine-form';
@@ -9,7 +10,7 @@ import type { MedicineFormValues } from '@/lib/validation';
 
 export default function NewMedicineScreen() {
   const router = useRouter();
-  const { addMedicine, updateMedicine } = useMedicines();
+  const { addMedicine, updateMedicine, treatmentMemory } = useMedicines();
 
   async function handleSubmit(values: MedicineFormValues) {
     // Salva o remédio primeiro. A foto é a parte "opcional": se ela falhar,
@@ -22,7 +23,7 @@ export default function NewMedicineScreen() {
       } catch (error) {
         console.warn(
           '[novo remédio] foto não pôde ser salva:',
-          error instanceof Error ? error.message : 'erro desconhecido',
+          errorMessage(error),
         );
         Alert.alert(
           'Remédio salvo',
@@ -35,7 +36,7 @@ export default function NewMedicineScreen() {
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <MedicineForm submitLabel="Salvar remédio" onSubmit={handleSubmit} />
+      <MedicineForm submitLabel="Salvar remédio" onSubmit={handleSubmit} treatmentMemory={treatmentMemory} />
     </ThemedView>
   );
 }

@@ -6,6 +6,8 @@
  * `extractTextFromImage` rejeitando) vira um array vazio.
  */
 
+import { errorMessage } from './text';
+
 type TextExtractorModule = typeof import('expo-text-extractor');
 
 /** Lê o texto impresso na foto e devolve as linhas reconhecidas (pode vir
@@ -30,7 +32,7 @@ export async function recognizeText(photoUri: string): Promise<string[]> {
     // saúde e não devem ir a log (mesmo padrão de storage.ts/provisioning.ts).
     console.warn(
       '[ocr] falha ao ler o texto da foto:',
-      error instanceof Error ? error.message : 'erro desconhecido',
+      errorMessage(error),
     );
     return [];
   }

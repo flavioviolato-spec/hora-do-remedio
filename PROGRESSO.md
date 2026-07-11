@@ -4,6 +4,24 @@
 
 ## Estado atual
 
+**ETAPA 9 CONCLUÍDA EM 11/07/2026 — sugestão de Tratamento + estoque + relatório + backup (v0.7.0-teste).** Quatro features novas pedidas pelo Flavio, implementadas por 3 subagentes em paralelo (com divisão estrita de arquivos) e revisadas em conjunto:
+- **Sugestão de "Tratamento"**: ao preencher o nome (digitado ou OCR), o app sugere o tratamento — memória do próprio usuário (nome→tratamento que ele já salvou; sobrevive à exclusão do remédio, persistida em `Store.treatmentMemory`) tem prioridade; lista curada de 23 substâncias comuns como fallback, **verificada item a item pelo revisor de segurança** (todas corretas). Sempre editável, só preenche campo vazio.
+- **Estoque de comprimidos** (opcional): campo no cadastro; marcar dose desconta 1, desmarcar devolve (mesma gravação atômica do doseLog); card avisa quando ≤ 2 dias de doses ou zerado.
+- **Relatório de adesão**: botão na tela de histórico gera texto (período, doses tomadas/previstas, %, grade por dia) e compartilha via Share nativo — pra levar à consulta.
+- **Backup/restauração**: botões em Ajustes; arquivo JSON via janela de compartilhar do iOS (decisão do Flavio: sem OAuth Google — mesmo resultado, sem código de rede); restauração passa por sanitizeStore + confirmação destrutiva + replaceStore (fila de gravação); fotos ficam de fora (photoUri anulado — achado CRÍTICO do revisor de código corrigido); arquivo temporário apagado do cache (achado do revisor de segurança).
+
+Ciclo completo sobre o conjunto: testador de integração (6 cruzamentos entre as features, 2 arquivos de teste novos; pegou um furo de processo meu — patch sem rodar suíte — registrado em DESAFIOS.md item 19), revisor-seguranca (aprovado; verificação médica da lista + auditoria do fluxo de dado de saúde saindo do app), revisor-codigo (1 crítico + 4 recomendados, todos aplicados). **381/381 testes.**
+
+**Pendente de teste no aparelho (v0.6.x e v0.7.0 juntos)**: OCR com caixinhas reais (v2 da heurística), navegação do card, sugestão de tratamento, estoque, relatório, backup/restauração.
+
+### Etapa 9 — concluída (11/07/2026)
+- [x] `src/lib/treatment-suggestions.ts` (+ `treatmentMemory` no Store/contexto, gatilhos no form via OCR e onEndEditing)
+- [x] Estoque: `Medicine.stockCount`, toggleDose atômico, `stockSummary` no card, campo no form, patch no edit
+- [x] `src/lib/report.ts` + botão compartilhar no histórico (Share nativo, zero dependência)
+- [x] `src/lib/backup.ts` (expo-sharing + expo-document-picker ~14.0.8) + seção Backup em Ajustes + `replaceStore`
+- [x] `src/lib/text.ts`: `normalize` e `errorMessage` compartilhados (DRY em 10 arquivos)
+- [x] Verificação final: `tsc` ok, **381/381 testes**
+
 **ETAPA 8 CONCLUÍDA EM 11/07/2026 — OCR (ler nome do remédio na foto) + correção de bug de navegação.** Ao fotografar a caixinha, o app tenta ler o nome impresso (Vision da Apple, 100% offline) e sugere no campo "Nome do remédio" — sempre como sugestão editável, nunca trava o campo, nunca sobrescreve o que o usuário digitou. Pacote `expo-text-extractor@2.0.0` (verificado com dados reais de npm/GitHub e código-fonte: usa `VNRecognizeTextRequest`/Vision de verdade, MIT, sem rede). Também corrigido um bug que o Flavio encontrou: tocar no card de um remédio abria "Unmatched Route" em vez do histórico (rota de índice em pasta dinâmica `medicine/[id]/index.tsx` navegava com "/index" no caminho, que o Expo Router remove em runtime). Ciclo completo (testador com mutation testing + revisor-seguranca + revisor-codigo), todos aprovados; achados do revisor de código aplicados (log silencioso no Expo Go, proteção de desmontagem, constante `MAX_NAME_LENGTH` única). **248/248 testes.**
 
 **Próxima: sugestão automática do campo "Tratamento" pelo nome do remédio** (lista curada de remédios comuns + aprender do histórico do próprio usuário) — decidido com o Flavio; entra DEPOIS de o OCR ser confirmado funcionando no iPhone dele. Este é o único item novo na fila; o roadmap original está completo.

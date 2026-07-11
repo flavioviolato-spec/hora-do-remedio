@@ -30,6 +30,8 @@ export type Medicine = {
   soundId: string;
   /** Para que é o remédio, ex.: "Dor", "Náusea e vômito", "Antibiótico". Opcional. */
   treatment?: string;
+  /** Comprimidos restantes na caixa. undefined = usuário não controla estoque. */
+  stockCount?: number;
   /** false = pausado pelo usuário; não gera alarmes nem doses. */
   active: boolean;
   createdAt: string;

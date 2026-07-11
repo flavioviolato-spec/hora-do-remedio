@@ -30,8 +30,27 @@ export function scheduleSummary(medicine: Medicine, todayISO: string): string {
   return `Faltam ${remaining} dias — termina ${end}`;
 }
 
+/**
+ * Resumo do estoque pro card da Home. null = usuário não controla estoque
+ * (nada é mostrado). `danger: true` quando acabou ou está acabando —
+ * limiar de "acabando": 2 dias de doses (times.length * 2).
+ */
+export function stockSummary(medicine: Medicine): { text: string; danger: boolean } | null {
+  const stock = medicine.stockCount;
+  if (stock === undefined) return null;
+  if (stock === 0) {
+    return { text: 'Comprimidos acabaram — reponha a caixa', danger: true };
+  }
+  const unit = stock === 1 ? 'comprimido' : 'comprimidos';
+  if (stock <= medicine.times.length * 2) {
+    return { text: `Acabando: ${stock} ${unit} ${stock === 1 ? 'restante' : 'restantes'}`, danger: true };
+  }
+  return { text: `${stock} ${unit} ${stock === 1 ? 'restante' : 'restantes'}`, danger: false };
+}
+
 export function MedicineCard({ medicine, todayISO, onPress, onEdit }: Props) {
   const theme = useTheme();
+  const stock = stockSummary(medicine);
 
   return (
     <Pressable
@@ -73,6 +92,14 @@ export function MedicineCard({ medicine, todayISO, onPress, onEdit }: Props) {
         <ThemedText type="small" themeColor="textSecondary">
           {scheduleSummary(medicine, todayISO)}
         </ThemedText>
+        {stock && (
+          <ThemedText
+            type={stock.danger ? 'smallBold' : 'small'}
+            themeColor={stock.danger ? 'danger' : 'textSecondary'}
+          >
+            {stock.text}
+          </ThemedText>
+        )}
       </View>
 
       <Pressable

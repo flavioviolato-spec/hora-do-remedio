@@ -50,6 +50,7 @@ function makeFormValues(overrides: Partial<MedicineFormValues> = {}): MedicineFo
     durationDays: 10,
     soundId: 'classico',
     treatment: '',
+    stockCount: null,
     ...overrides,
   };
 }
@@ -89,6 +90,7 @@ describe('QA follow-up: mutações concorrentes de tipos diferentes', () => {
   it('add + toggle + remove disparados juntos refletem os três, em ordem FIFO consistente', async () => {
     const store: Store = {
       version: 1,
+      treatmentMemory: {},
       medicines: [
         makeMedicine({ id: 'med-1' }),
         makeMedicine({ id: 'med-2' }),
@@ -154,6 +156,7 @@ describe('QA follow-up: falha no meio da fila não trava as próximas mutações
   it('saveStore rejeitando na 2ª mutação não impede a 3ª nem mutações futuras', async () => {
     const store: Store = {
       version: 1,
+      treatmentMemory: {},
       medicines: [makeMedicine({ id: 'med-1' }), makeMedicine({ id: 'med-2' }), makeMedicine({ id: 'med-3' })],
       doseLog: [],
     };
@@ -221,6 +224,7 @@ describe('QA follow-up: exclusão de foto continua ocorrendo só APÓS gravaçã
   it('updateMedicine troca a foto: deletePhoto só é chamado depois de saveStore resolver, com a URI antiga', async () => {
     const store: Store = {
       version: 1,
+      treatmentMemory: {},
       medicines: [makeMedicine({ id: 'med-1', photoUri: 'file:///docs/photos/med-1-old.jpg' })],
       doseLog: [],
     };
@@ -251,6 +255,7 @@ describe('QA follow-up: exclusão de foto continua ocorrendo só APÓS gravaçã
   it('se saveStore falhar, deletePhoto NÃO é chamado (nada é apagado sem gravação confirmada)', async () => {
     const store: Store = {
       version: 1,
+      treatmentMemory: {},
       medicines: [makeMedicine({ id: 'med-1', photoUri: 'file:///docs/photos/med-1-old.jpg' })],
       doseLog: [],
     };
@@ -275,6 +280,7 @@ describe('QA follow-up: exclusão de foto continua ocorrendo só APÓS gravaçã
   it('removeMedicine só apaga a foto depois de o remédio sumir da loja gravada', async () => {
     const store: Store = {
       version: 1,
+      treatmentMemory: {},
       medicines: [makeMedicine({ id: 'med-1', photoUri: 'file:///docs/photos/med-1.jpg' })],
       doseLog: [],
     };

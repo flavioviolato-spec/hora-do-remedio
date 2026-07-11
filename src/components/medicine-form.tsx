@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { errorMessage } from '@/lib/text';
 import { addDays } from 'date-fns';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +22,7 @@ import { recognizeText } from '@/lib/ocr';
 import { pickBestNameCandidate } from '@/lib/ocr-heuristics';
 import { toDateISO, toTimeHM } from '@/lib/schedule';
 import { normalizeSoundId } from '@/lib/sounds';
+import { suggestTreatment } from '@/lib/treatment-suggestions';
 import type { Medicine } from '@/lib/types';
 import { MAX_NAME_LENGTH, validateMedicine, type MedicineFormValues } from '@/lib/validation';
 
@@ -28,6 +30,11 @@ type Props = {
   initial?: Medicine;
   submitLabel: string;
   onSubmit: (values: MedicineFormValues) => Promise<void>;
+  /** Memória de sugestões (nome normalizado → tratamento) vinda do
+   * useMedicines(). Opcional com default `{}`: o form continua funcionando
+   * (e testável) sem provider — só perde a fonte "memória do usuário",
+   * a lista curada segue valendo. */
+  treatmentMemory?: Record<string, string>;
 };
 
 const DURATION_PRESETS = [5, 7, 10, 14, 30];
@@ -43,7 +50,7 @@ const TREATMENT_PRESETS = [
   'Pressão',
 ];
 
-export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
+export function MedicineForm({ initial, submitLabel, onSubmit, treatmentMemory = {} }: Props) {
   const theme = useTheme();
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -53,6 +60,10 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const [startDate, setStartDate] = useState(initial?.startDate ?? toDateISO(new Date()));
   const [soundId, setSoundId] = useState(normalizeSoundId(initial?.soundId));
   const [treatment, setTreatment] = useState(initial?.treatment ?? '');
+  // Texto cru do campo de estoque: '' = usuário não controla estoque.
+  const [stockText, setStockText] = useState(
+    initial?.stockCount !== undefined ? String(initial.stockCount) : '',
+  );
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -61,6 +72,11 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
    * resultado da leitura antiga é descartado ao chegar (mesmo princípio da
    * fila de gravação em medicines-context.tsx, aqui só um contador). */
   const ocrRequestIdRef = useRef(0);
+  /** Espelho do estado `name` pra callbacks assíncronos (o `.then` do OCR)
+   * enxergarem o valor mais recente sem depender do closure da renderização
+   * antiga — mesmo padrão do storeRef em medicines-context.tsx. */
+  const nameRef = useRef(name);
+  nameRef.current = name;
   /** Evita aplicar um resultado de OCR depois que a tela já foi fechada
    * (usuário cancelou/voltou antes da leitura terminar). */
   const mountedRef = useRef(true);
@@ -95,8 +111,25 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       setOcrLoading(false);
       const candidate = pickBestNameCandidate(lines);
       if (!candidate) return;
+      // O nome só é aplicado se o campo estava vazio — e só nesse caso a
+      // sugestão de tratamento também dispara (senão o nome que vale é o
+      // que o usuário digitou, não o da foto).
+      const willApply = nameRef.current.trim() === '';
       setName((current) => (current.trim() === '' ? candidate : current));
+      if (willApply) maybeSuggestTreatment(candidate);
     });
+  }
+
+  /**
+   * Preenche o campo "Tratamento" com uma sugestão tirada do nome do
+   * remédio — SÓ se o campo estiver vazio naquele momento (nunca
+   * sobrescreve nada, nem em corrida: a checagem acontece dentro do
+   * updater do setTreatment). O usuário pode apagar ou editar à vontade.
+   */
+  function maybeSuggestTreatment(medicineName: string) {
+    const suggestion = suggestTreatment(medicineName, treatmentMemory);
+    if (!suggestion) return;
+    setTreatment((current) => (current.trim() === '' ? suggestion : current));
   }
 
   async function captureFromCamera() {
@@ -153,6 +186,9 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       durationDays,
       soundId,
       treatment,
+      // Vazio = não controla estoque. Texto ruim vira NaN, que não é inteiro
+      // — a validateMedicine rejeita com a mensagem certa.
+      stockCount: stockText.trim() === '' ? null : Number(stockText),
     };
     const problems = validateMedicine(values);
     setErrors(problems);
@@ -163,7 +199,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
     } catch (error) {
       console.warn(
         '[form] falha ao salvar:',
-        error instanceof Error ? error.message : 'erro desconhecido',
+        errorMessage(error),
       );
       Alert.alert('Não foi possível salvar', 'Tente de novo. Se persistir, me avise.');
     } finally {
@@ -216,6 +252,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       <TextInput
         value={name}
         onChangeText={setName}
+        onEndEditing={() => maybeSuggestTreatment(name)}
         placeholder="Ex.: Amoxicilina 500mg"
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, fieldBox, { color: theme.text }]}
@@ -365,6 +402,20 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
           <SymbolView name="plus" size={18} tintColor={theme.brand} />
         </Pressable>
       </View>
+
+      <ThemedText type="smallBold" themeColor="textSecondary">
+        Comprimidos na caixa (opcional)
+      </ThemedText>
+      <TextInput
+        value={stockText}
+        onChangeText={(text) => setStockText(text.replace(/[^0-9]/g, ''))}
+        keyboardType="number-pad"
+        placeholder="Ex.: 20 — deixe vazio para não controlar"
+        placeholderTextColor={theme.textSecondary}
+        style={[styles.input, fieldBox, { color: theme.text }]}
+        maxLength={3}
+        accessibilityLabel="Comprimidos na caixa"
+      />
 
       <ThemedText type="smallBold" themeColor="textSecondary">
         Som do alarme

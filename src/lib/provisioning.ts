@@ -20,6 +20,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import { errorMessage } from './text';
 
 export type ProvisioningInfo = {
   expirationDate: Date;
@@ -76,7 +77,7 @@ export async function readProvisioningInfo(now: Date = new Date()): Promise<Prov
   } catch (error) {
     console.warn(
       '[provisioning] falha ao ler validade da instalação:',
-      error instanceof Error ? error.message : 'erro desconhecido',
+      errorMessage(error),
     );
     return null;
   }
