@@ -9,6 +9,11 @@ on:
   push:
     tags: ['v*']
 
+# Sem isto o GITHUB_TOKEN é só-leitura e o passo de publicar Release falha
+# (causa da falha do build 3).
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-26
