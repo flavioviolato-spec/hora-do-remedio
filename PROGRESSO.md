@@ -1,12 +1,24 @@
 # PROGRESSO — Hora do Remédio
 
-> Atualizado em: 10/07/2026
+> Atualizado em: 11/07/2026
 
 ## Estado atual
 
-**ETAPA 2 CONCLUÍDA EM 11/07/2026 — MARCO PRINCIPAL: alarme do app TOCOU no iPhone do Flavio em MODO SILENCIOSO com tela bloqueada (confirmado por ele).** App v0.1.2-teste instalado via AltStore no PC local dele (Plano B: Sideload .ipa direto pelo AltServer resolveu o erro "could not find this device"). Pipeline completo validado: código → GitHub → build na nuvem → Release → AltStore → iPhone.
+**ETAPA 4 CONCLUÍDA EM 11/07/2026 — alarmes reais por remédio.** O reconciliador (`src/lib/alarmSync.ts`) agora agenda um alarme diário de verdade para cada horário de cada remédio ativo, mais um alarme de data fixa para a 1ª dose de remédio que começa no futuro. Roda sozinho: quando o app abre, a cada cadastro/edição/exclusão e a cada retorno ao primeiro plano. Home avisa com banner se a permissão foi negada ou algum alarme não pôde ser agendado.
 
-**Próxima etapa: 4 (alarmes reais por remédio — reconciliador alarmSync).** Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (Etapa 7).
+Passou por **3 rodadas de QA independente** (subagente testador) que encontraram e corrigiram **5 defeitos reais** antes de fechar a etapa — todos com teste automatizado provando a correção: (1) alarme diário perto da meia-noite não era protegido contra cancelamento a poucos minutos de tocar; (2) mesma falha para o alarme de 1ª dose futura; (3) falha ao agendar era relatada como sucesso, escondendo que nenhum alarme existia de fato; (4) duas reconciliações rodando ao mesmo tempo podiam duplicar ou apagar um alarme (cadastrar 2 remédios em sequência rápida); (5) a correção do item 4 introduziu um relógio desatualizado que furava a proteção do item 1 — corrigido lendo a hora só quando a reconciliação de fato roda. Revisão de segurança aprovada (reforço aplicado: mensagens de erro nativas truncadas antes de logar). Revisão de código encontrou 1 crítico (erro inesperado na reconciliação não avisava a tela) — corrigido.
+
+**Próxima etapa: 5 (doses tomadas — persistir o histórico, animação de celebração, grade dia×horário).** Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (Etapa 7).
+
+### Etapa 4 — concluída (11/07/2026)
+- [x] `src/lib/alarmSync.ts`: `reconcileAlarms(port, medicines, now?)` — alarme diário por (remédio ativo hoje, horário) + alarme de data fixa para 1ª dose de remédio futuro
+- [x] Proteção "iminente": não cancela/reagenda alarme a menos de 2 min de tocar (trata virada de meia-noite corretamente)
+- [x] Serializado por `AlarmPort` (fila interna, `WeakMap`) — nunca duas reconciliações ao mesmo tempo; decisão de arquitetura validada pelo subagente arquiteto (ver ARQUITETURA.md)
+- [x] `src/lib/alarm-sync-context.tsx`: liga o reconciliador ao app (início, todo CRUD via `medicines-context`, retorno ao primeiro plano via `AppState`)
+- [x] Home: banner "Alarmes desligados" quando permissão negada ou agendamento falhou, com atalho para Ajustes
+- [x] `src/lib/schedule.ts`: nova função pura `computeFutureFirstDoses`
+- [x] Ciclo completo: **testador** (3 rodadas, 5 defeitos reais corrigidos, 112 testes), **revisor-seguranca** (aprovado; reforço de log aplicado), **revisor-codigo** (1 crítico corrigido: erro inesperado não avisava a UI; 2 desatualizações em ARQUITETURA.md corrigidas)
+- [x] Verificação final: `tsc` ok, **112/112 testes**
 
 ### Etapa 3 — concluída (11/07/2026)
 - [x] Cadastro real: foto da caixinha (câmera/galeria, redimensionada 800px), nome, horários múltiplos (seletor giratório), duração (presets + ajuste), início hoje/amanhã
@@ -60,10 +72,8 @@
 
 ## Próximos passos
 
-1. Flavio: criar o repositório e me passar o nome de usuário (instruções na conversa)
-2. Eu: push + tag → acompanhar build → guia AltStore em português
-3. Smoke test no iPhone: alarme de teste no modo silencioso
-4. Depois: Etapa 4 (alarmes reais por remédio) + OCR + Etapa 5
+1. Publicar nova tag/Release (v0.2.x) e Flavio atualizar o app via AltStore para testar alarmes reais no iPhone
+2. Depois: Etapa 5 (doses tomadas — histórico + celebração) + OCR + Etapa 6
 
 ## Como retomar em nova sessão
 

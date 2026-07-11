@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   computeDesiredAlarms,
+  computeFutureFirstDoses,
   daysRemaining,
   doseStatus,
   dosesForDate,
@@ -259,6 +260,43 @@ describe('computeDesiredAlarms', () => {
 
   it('remédio pausado não gera alarme mesmo dentro do período', () => {
     expect(computeDesiredAlarms([makeMedicine({ active: false })], '2026-07-10')).toEqual([]);
+  });
+});
+
+describe('computeFutureFirstDoses', () => {
+  it('remédio que ainda não começou gera 1ª dose futura por horário', () => {
+    const futuro = makeMedicine({ startDate: '2026-08-01', times: ['08:00', '20:00'] });
+    const doses = computeFutureFirstDoses([futuro], '2026-07-10');
+    expect(doses).toEqual([
+      { medicineId: 'med-1', time: '08:00', title: 'Remédio Teste 500mg', soundId: 'classico', dateISO: '2026-08-01' },
+      { medicineId: 'med-1', time: '20:00', title: 'Remédio Teste 500mg', soundId: 'classico', dateISO: '2026-08-01' },
+    ]);
+  });
+
+  it('remédio que já começou hoje não entra (vira alarme diário, não fixo)', () => {
+    expect(computeFutureFirstDoses([makeMedicine({ startDate: '2026-07-10' })], '2026-07-10')).toEqual(
+      [],
+    );
+  });
+
+  it('remédio que já começou no passado não entra', () => {
+    const antigo = makeMedicine({ startDate: '2026-07-01' });
+    expect(computeFutureFirstDoses([antigo], '2026-07-10')).toEqual([]);
+  });
+
+  it('remédio pausado com início futuro não entra', () => {
+    const pausado = makeMedicine({ startDate: '2026-08-01', active: false });
+    expect(computeFutureFirstDoses([pausado], '2026-07-10')).toEqual([]);
+  });
+
+  it('ordena por data, depois horário, depois id', () => {
+    const b = makeMedicine({ id: 'med-b', startDate: '2026-07-20', times: ['09:00'] });
+    const a = makeMedicine({ id: 'med-a', startDate: '2026-07-15', times: ['18:00', '06:00'] });
+    expect(computeFutureFirstDoses([b, a], '2026-07-10').map((d) => `${d.dateISO} ${d.time} ${d.medicineId}`)).toEqual([
+      '2026-07-15 06:00 med-a',
+      '2026-07-15 18:00 med-a',
+      '2026-07-20 09:00 med-b',
+    ]);
   });
 });
 

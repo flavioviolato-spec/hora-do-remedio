@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAlarmSyncStatus } from '@/lib/alarm-sync-context';
 import { useMedicines } from '@/lib/medicines-context';
 import { doseStatus, dosesForDate, toDateISO, toTimeHM } from '@/lib/schedule';
 import { doseKey } from '@/lib/types';
@@ -35,6 +36,8 @@ export default function HomeScreen() {
   const nowHM = toTimeHM(now);
 
   const { medicines, loading } = useMedicines();
+  const { permissionDenied, schedulingFailed } = useAlarmSyncStatus();
+  const alarmWarning = permissionDenied || schedulingFailed;
   // Marcação de dose ainda em memória — a Etapa 5 persiste no histórico.
   const [takenKeys, setTakenKeys] = useState<Set<string>>(new Set());
 
@@ -77,6 +80,31 @@ export default function HomeScreen() {
               {capitalize(format(now, "EEEE, d 'de' MMMM", { locale: ptBR }))}
             </ThemedText>
           </View>
+
+          {alarmWarning && (
+            <Pressable
+              onPress={() => router.push('/settings')}
+              accessibilityRole="button"
+              accessibilityLabel="Alarmes desligados. Toque para verificar em Ajustes."
+              style={({ pressed }) => [
+                styles.alarmBanner,
+                { backgroundColor: theme.accentSoft, borderColor: theme.danger },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <SymbolView name="bell.slash.fill" size={20} tintColor={theme.danger} />
+              <View style={styles.alarmBannerText}>
+                <ThemedText type="smallBold" themeColor="danger">
+                  Alarmes desligados
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {permissionDenied
+                    ? 'Permissão negada — toque para liberar em Ajustes.'
+                    : 'Alguns alarmes não puderam ser agendados — toque para verificar em Ajustes.'}
+                </ThemedText>
+              </View>
+            </Pressable>
+          )}
 
           <ThemedText type="heading" style={styles.sectionTitle}>
             Hoje
@@ -178,6 +206,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: Spacing.two,
+  },
+  alarmBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: Radius.chip,
+    borderWidth: 1,
+    padding: Spacing.three,
+  },
+  alarmBannerText: {
+    flex: 1,
+    gap: 2,
   },
   blister: {
     borderRadius: Radius.card,

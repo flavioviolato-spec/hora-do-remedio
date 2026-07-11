@@ -97,3 +97,46 @@ export function computeDesiredAlarms(medicines: Medicine[], todayISO: string): D
   }
   return alarms.sort((a, b) => a.time.localeCompare(b.time) || a.medicineId.localeCompare(b.medicineId));
 }
+
+/** Uma 1ª dose de um remédio cujo tratamento ainda não começou hoje. */
+export type FutureFirstDose = {
+  medicineId: string;
+  time: string;
+  title: string;
+  soundId: string;
+  /** Dia em que a dose acontece — sempre `med.startDate`, depois de hoje. */
+  dateISO: string;
+};
+
+/**
+ * Remédios ativos com início depois de hoje: o alarme diário recorrente só
+ * nasce quando o remédio fica ativo (computeDesiredAlarms), e isso só
+ * acontece se o app for reaberto naquele dia. Para a 1ª dose tocar mesmo
+ * que o app não seja reaberto entre hoje e o início, alarmSync agenda
+ * também um alarme de DATA FIXA para ela.
+ */
+export function computeFutureFirstDoses(
+  medicines: Medicine[],
+  todayISO: string,
+): FutureFirstDose[] {
+  const doses: FutureFirstDose[] = [];
+  for (const med of medicines) {
+    if (!med.active) continue;
+    if (med.startDate <= todayISO) continue;
+    for (const time of med.times) {
+      doses.push({
+        medicineId: med.id,
+        time,
+        title: med.name,
+        soundId: med.soundId,
+        dateISO: med.startDate,
+      });
+    }
+  }
+  return doses.sort(
+    (a, b) =>
+      a.dateISO.localeCompare(b.dateISO) ||
+      a.time.localeCompare(b.time) ||
+      a.medicineId.localeCompare(b.medicineId),
+  );
+}
