@@ -4,6 +4,7 @@
  * no Expo Go o require falha e o app cai no mock (ver index.ts).
  */
 
+import { soundFileNameFor } from '../sounds';
 import type {
   AlarmAuthorization,
   AlarmPort,
@@ -32,11 +33,6 @@ const ALL_WEEKDAYS = [
 /** Dynamic Island trunca títulos longos; 24 dá para "Amoxicilina 500mg". */
 function shortTitle(title: string): string {
   return title.length <= 24 ? title : `${title.slice(0, 23)}…`;
-}
-
-/** Sons chegam na Etapa 6; por enquanto todo soundId usa o som padrão do sistema. */
-function soundFileFor(_soundId: string | undefined): string | undefined {
-  return undefined;
 }
 
 type AlarmKitModule = typeof import('react-native-nitro-ios-alarm-kit');
@@ -73,7 +69,7 @@ class NativeAlarmAdapter implements AlarmPort {
       ALL_WEEKDAYS as never,
       SNOOZE_BUTTON,
       { postAlert: SNOOZE_SECONDS },
-      soundFileFor(req.soundId),
+      soundFileNameFor(req.soundId),
     );
     if (!alarmId) {
       throw new Error(`AlarmKit não agendou o alarme diário de ${req.time}.`);
@@ -89,7 +85,7 @@ class NativeAlarmAdapter implements AlarmPort {
       SNOOZE_BUTTON,
       Math.round(req.fireDate.getTime() / 1000),
       { postAlert: SNOOZE_SECONDS },
-      soundFileFor(req.soundId),
+      soundFileNameFor(req.soundId),
     );
     if (!alarmId) {
       throw new Error('AlarmKit não agendou o alarme de data fixa.');

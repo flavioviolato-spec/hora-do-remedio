@@ -13,11 +13,13 @@ import {
   View,
 } from 'react-native';
 
+import { SoundPicker } from '@/components/sound-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { toDateISO, toTimeHM } from '@/lib/schedule';
-import { DEFAULT_SOUND_ID, type Medicine } from '@/lib/types';
+import { normalizeSoundId } from '@/lib/sounds';
+import type { Medicine } from '@/lib/types';
 import { validateMedicine, type MedicineFormValues } from '@/lib/validation';
 
 type Props = {
@@ -36,6 +38,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const [times, setTimes] = useState<string[]>(initial?.times ?? []);
   const [durationDays, setDurationDays] = useState(initial?.durationDays ?? 7);
   const [startDate, setStartDate] = useState(initial?.startDate ?? toDateISO(new Date()));
+  const [soundId, setSoundId] = useState(normalizeSoundId(initial?.soundId));
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -95,7 +98,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       times,
       startDate,
       durationDays,
-      soundId: initial?.soundId ?? DEFAULT_SOUND_ID,
+      soundId,
     };
     const problems = validateMedicine(values);
     setErrors(problems);
@@ -271,6 +274,11 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
           <SymbolView name="plus" size={18} tintColor={theme.brand} />
         </Pressable>
       </View>
+
+      <ThemedText type="smallBold" themeColor="textSecondary">
+        Som do alarme
+      </ThemedText>
+      <SoundPicker value={soundId} onChange={setSoundId} />
 
       <ThemedText type="smallBold" themeColor="textSecondary">
         Começa quando

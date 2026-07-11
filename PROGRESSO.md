@@ -4,11 +4,21 @@
 
 ## Estado atual
 
-**ETAPA 5 CONCLUÍDA EM 11/07/2026 — histórico de doses tomadas.** Marcar uma dose como tomada no checklist "Hoje" agora persiste de verdade (antes era só memória) — `src/lib/medicines-context.tsx` ganhou `doseLog`/`toggleDose`. Cada remédio tem uma tela de histórico própria (toque no card na Home) com uma grade dias×horários (`src/lib/schedule.ts` → `buildHistoryGrid`) e um botão de editar separado (ícone de lápis no card). Marcar como tomada dispara uma animação de celebração (anel + confetes, só com `react-native-reanimated` — decisão registrada em ARQUITETURA.md: sem Lottie, sem dependência nativa nova).
+**ETAPA 6 CONCLUÍDA EM 11/07/2026 — sons customizados + ícone/splash.** Cadastro de remédio ganhou seletor de som real (`SoundPicker`, com prévia via `expo-audio`) — antes o som era sempre o mesmo, sem escolha. 4 sons (`sino`/`suave`/`urgente`/`eletronico`, baixados do Kenney.nl com permissão do Flavio, licença CC0 documentada em `assets/sounds/LICENSE.md`, convertidos para `.wav` localmente com ffmpeg) + o som padrão do iPhone, embutidos no build iOS por um config plugin próprio (`plugins/withAlarmSounds.js`, mesmo mecanismo do `expo-notifications` oficial). Ícone do app e splash trocados do padrão do template Expo para a identidade "farmácia de bairro" (cruz branca sobre verde da marca, gerada programaticamente).
 
-3 rodadas de QA encontraram e corrigiram **1 defeito real, grave**: dois toques rápidos no checklist (comum ao marcar várias doses seguidas) podiam perder ou "grudar" uma marcação — condição de corrida na gravação. Corrigido com uma fila de gravação (`enqueue`/`writeQueueRef`), mesmo padrão já testado em `alarmSync.ts`. Revisão de segurança e de código aprovadas, sem itens críticos (2 melhorias baratas aplicadas: usar `doseKey()` em vez de comparação manual, `capitalize()` compartilhado). **144/144 testes.**
+Testador aprovou sem defeitos bloqueantes (achou 1 melhoria de UX aplicada: `normalizeSoundId` evita o seletor ficar sem nada marcado quando um remédio antigo tem som que não existe mais). Revisor de segurança achou 1 item real: o `expo-audio` pedia permissão de microfone sem necessidade (o app só toca prévia, nunca grava) — corrigido (`microphonePermission: false`). Revisor de código: 2 melhorias baratas aplicadas (removida duplicação em `native.ts`, plugin agora avisa claramente se `assets/sounds/` sumir). **166/166 testes.**
 
-**Próxima: Etapa 6 (sons customizados + polimento visual).** Pesquisa já feita: 2 sons CC0 prontos + 2 fontes CC0 adicionais + pacotes Kenney.nl, e o mecanismo técnico confirmado (config plugin com `IOSConfig.XcodeUtils.addResourceFileToGroup`, o mesmo usado pelo `expo-notifications` oficial). Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (Etapa 7).
+**Próxima: Etapa 7 (entrega v1.0 — banner de expiração dos 7 dias, documentação final, checklist manual) e OCR (ler nome do remédio na foto).** Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (é justamente a Etapa 7).
+
+### Etapa 6 — concluída (11/07/2026)
+- [x] `src/lib/sounds.ts`: catálogo `ALARM_SOUNDS` (5 opções) + `soundFileNameFor`/`normalizeSoundId`
+- [x] `assets/sounds/*.wav`: 4 sons CC0 (Kenney.nl, licença documentada) convertidos localmente com ffmpeg (instalado via winget nesta sessão)
+- [x] `plugins/withAlarmSounds.js`: config plugin que embute os sons no bundle iOS via `expo prebuild` (sem Mac, sem passo manual)
+- [x] `src/components/sound-picker.tsx`: seletor com prévia (`expo-audio`, instalado com permissão de microfone desativada — o app não grava)
+- [x] `src/components/medicine-form.tsx`: seção "Som do alarme" real
+- [x] Ícone iOS (`assets/expo.icon`) e splash (`assets/images/splash-icon.png`) com a identidade visual do app (verde-garrafa + cruz branca), gerados programaticamente (pngjs) — Flavio optou por algo simples agora
+- [x] Ciclo completo: **testador** (aprovado, 1 melhoria de UX aplicada), **revisor-seguranca** (1 item real corrigido: permissão de microfone desnecessária), **revisor-codigo** (aprovado, 2 melhorias aplicadas)
+- [x] Verificação final: `tsc` ok, **166/166 testes**, `expo export` sem erros
 
 ### Etapa 5 — concluída (11/07/2026)
 - [x] `src/lib/medicines-context.tsx`: `doseLog`/`toggleDose(medicineId, dateISO, time)` — marcar dose persiste de verdade

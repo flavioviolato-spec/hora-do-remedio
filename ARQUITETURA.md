@@ -233,8 +233,9 @@ __mocks__/        mock oficial do AsyncStorage p/ jest
 
 ## Qualidade
 
-- **144 testes jest** (schedule, validation, storage, alarmSync, medicines-context) — rodar com `npm test`
+- **166 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker) — rodar com `npm test`
 - Ciclo obrigatório por etapa: testador → revisor-seguranca → revisor-codigo → correções → testes de novo (CLAUDE.md)
-- Última revisão de segurança: 11/07/2026 (Etapa 5), aprovada sem itens críticos/altos
-- Última revisão de código: 11/07/2026 (Etapa 5), aprovada sem itens críticos (2 melhorias
-  baratas aplicadas: `doseKey()` reaproveitada em `toggleDose`, `capitalize()` compartilhado)
+- Última revisão de segurança: 11/07/2026 (Etapa 6) — 1 item real corrigido (permissão de
+  microfone desnecessária do `expo-audio`, desativada)
+- Última revisão de código: 11/07/2026 (Etapa 6), aprovada sem itens críticos (2 melhorias
+  baratas aplicadas: duplicação removida em `native.ts`, plugin de sons avisa se a pasta sumir)

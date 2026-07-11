@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#175A41",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -36,18 +36,31 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F7F4EC",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
       ],
       "@react-native-community/datetimepicker",
+      [
+        "./plugins/withAlarmSounds.js",
+        {
+          "soundsDir": "assets/sounds"
+        }
+      ],
       [
         "expo-build-properties",
         {
           "ios": {
             "deploymentTarget": "26.0"
           }
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ],
