@@ -49,6 +49,7 @@ function makeFormValues(overrides: Partial<MedicineFormValues> = {}): MedicineFo
     startDate: '2026-07-01',
     durationDays: 10,
     soundId: 'classico',
+    treatment: '',
     ...overrides,
   };
 }

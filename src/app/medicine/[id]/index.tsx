@@ -61,6 +61,11 @@ export default function MedicineHistoryScreen() {
             <ThemedText type="title" style={styles.name} numberOfLines={2}>
               {medicine.name}
             </ThemedText>
+            {medicine.treatment && (
+              <ThemedText type="small" themeColor="brand" numberOfLines={1}>
+                {medicine.treatment}
+              </ThemedText>
+            )}
             <ThemedText type="small" themeColor="textSecondary">
               {scheduleSummary(medicine, todayISO)}
             </ThemedText>

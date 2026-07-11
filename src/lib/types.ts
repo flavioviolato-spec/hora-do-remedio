@@ -28,6 +28,8 @@ export type Medicine = {
   durationDays: number;
   /** Som do alarme (id de assets/sounds). */
   soundId: string;
+  /** Para que é o remédio, ex.: "Dor", "Náusea e vômito", "Antibiótico". Opcional. */
+  treatment?: string;
   /** false = pausado pelo usuário; não gera alarmes nem doses. */
   active: boolean;
   createdAt: string;

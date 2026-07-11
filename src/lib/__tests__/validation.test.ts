@@ -10,6 +10,7 @@ function makeValues(overrides: Partial<MedicineFormValues> = {}): MedicineFormVa
     startDate: '2026-07-10',
     durationDays: 7,
     soundId: 'classico',
+    treatment: '',
     ...overrides,
   };
 }
@@ -106,5 +107,43 @@ describe('validateMedicine', () => {
     expect(validateMedicine(makeValues({ startDate: '2026-02-30' }))).not.toEqual([]);
     expect(validateMedicine(makeValues({ startDate: '2026-13-01' }))).not.toEqual([]);
     expect(validateMedicine(makeValues({ startDate: '2026-02-29' }))).not.toEqual([]);
+  });
+
+  // --- Campo "Tratamento" (opcional) ---
+
+  it('tratamento vazio: sem erro (campo opcional)', () => {
+    expect(validateMedicine(makeValues({ treatment: '' }))).toEqual([]);
+  });
+
+  it('tratamento com acentuação e ç ("Infecção", "Anti-inflamatório"): sem erro', () => {
+    expect(validateMedicine(makeValues({ treatment: 'Infecção' }))).toEqual([]);
+    expect(validateMedicine(makeValues({ treatment: 'Anti-inflamatório' }))).toEqual([]);
+  });
+
+  it('tratamento com exatamente 40 caracteres é válido (limite superior)', () => {
+    expect(validateMedicine(makeValues({ treatment: 'a'.repeat(40) }))).toEqual([]);
+  });
+
+  it('tratamento com 41 caracteres: erro', () => {
+    expect(validateMedicine(makeValues({ treatment: 'a'.repeat(41) }))).not.toEqual([]);
+  });
+
+  it('tratamento só com espaços em branco NÃO conta como preenchido: sem erro de tamanho mesmo com mais de 40 espaços', () => {
+    // Comportamento real do código: validateMedicine testa treatment.trim().length > 40,
+    // então uma string de puros espaços colapsa para '' antes da checagem de tamanho.
+    expect(validateMedicine(makeValues({ treatment: ' '.repeat(50) }))).toEqual([]);
+  });
+
+  it('tratamento com espaços nas pontas: só a parte "aparada" (trim) conta para o limite de 40', () => {
+    // 40 letras + espaços nas pontas -> trim() = 40 -> não passa de 40 -> sem erro,
+    // mesmo a string bruta tendo mais de 40 caracteres (44).
+    const treatment = `  ${'a'.repeat(40)}  `;
+    expect(treatment.length).toBe(44);
+    expect(validateMedicine(makeValues({ treatment }))).toEqual([]);
+  });
+
+  it('tratamento com 41 letras "aparadas" (espaços nas pontas + 41 letras): erro', () => {
+    const treatment = `  ${'a'.repeat(41)}  `;
+    expect(validateMedicine(makeValues({ treatment }))).not.toEqual([]);
   });
 });

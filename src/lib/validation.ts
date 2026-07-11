@@ -9,6 +9,8 @@ export type MedicineFormValues = {
   startDate: string;
   durationDays: number;
   soundId: string;
+  /** Para que é o remédio, ex.: "Dor". Vazio = não informado. */
+  treatment: string;
 };
 
 /** Retorna a lista de problemas; vazia = tudo certo. */
@@ -38,6 +40,9 @@ export function validateMedicine(values: MedicineFormValues): string[] {
   }
   if (!isValidDateISO(values.startDate)) {
     errors.push('Data de início inválida.');
+  }
+  if (values.treatment.trim().length > 40) {
+    errors.push('O tratamento está longo demais (máximo 40 letras).');
   }
 
   return errors;

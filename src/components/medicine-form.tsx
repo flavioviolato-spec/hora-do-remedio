@@ -30,6 +30,17 @@ type Props = {
 
 const DURATION_PRESETS = [5, 7, 10, 14, 30];
 
+const TREATMENT_PRESETS = [
+  'Dor',
+  'Febre',
+  'Infecção',
+  'Náusea e vômito',
+  'Relaxante muscular',
+  'Antibiótico',
+  'Anti-inflamatório',
+  'Pressão',
+];
+
 export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const theme = useTheme();
 
@@ -39,6 +50,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const [durationDays, setDurationDays] = useState(initial?.durationDays ?? 7);
   const [startDate, setStartDate] = useState(initial?.startDate ?? toDateISO(new Date()));
   const [soundId, setSoundId] = useState(normalizeSoundId(initial?.soundId));
+  const [treatment, setTreatment] = useState(initial?.treatment ?? '');
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -99,6 +111,7 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
       startDate,
       durationDays,
       soundId,
+      treatment,
     };
     const problems = validateMedicine(values);
     setErrors(problems);
@@ -167,6 +180,38 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
         style={[styles.input, fieldBox, { color: theme.text }]}
         maxLength={80}
         accessibilityLabel="Nome do remédio"
+      />
+
+      <ThemedText type="smallBold" themeColor="textSecondary">
+        Tratamento (opcional)
+      </ThemedText>
+      <View style={styles.timesRow}>
+        {TREATMENT_PRESETS.map((preset) => {
+          const selected = treatment.trim() === preset;
+          return (
+            <Pressable
+              key={preset}
+              onPress={() => setTreatment(selected ? '' : preset)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              hitSlop={8}
+              style={[styles.timeChip, selected ? { backgroundColor: theme.brand } : fieldBox]}
+            >
+              <ThemedText type="smallBold" style={selected ? { color: theme.onBrand } : undefined}>
+                {preset}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+      <TextInput
+        value={treatment}
+        onChangeText={setTreatment}
+        placeholder="Ex.: Dor de cabeça, colesterol…"
+        placeholderTextColor={theme.textSecondary}
+        style={[styles.input, fieldBox, { color: theme.text }]}
+        maxLength={40}
+        accessibilityLabel="Tratamento"
       />
 
       <ThemedText type="smallBold" themeColor="textSecondary">

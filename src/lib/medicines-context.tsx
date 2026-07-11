@@ -90,6 +90,7 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
           startDate: values.startDate,
           durationDays: values.durationDays,
           soundId: values.soundId,
+          treatment: values.treatment.trim() || undefined,
           active: true,
           createdAt: new Date().toISOString(),
         };
@@ -107,6 +108,7 @@ export function MedicinesProvider({ children }: { children: ReactNode }) {
           const next = { ...med, ...patch, id: med.id };
           if (patch.times) next.times = [...patch.times].sort();
           if (patch.name !== undefined) next.name = patch.name.trim();
+          if (patch.treatment !== undefined) next.treatment = patch.treatment.trim() || undefined;
           return next;
         });
         return { next: { ...current, medicines }, result: previousMed };

@@ -15,6 +15,7 @@ import { act, create } from 'react-test-renderer';
 import { MedicinesProvider, useMedicines } from '../medicines-context';
 import type { Store } from '../storage';
 import type { Medicine } from '../types';
+import type { MedicineFormValues } from '../validation';
 
 const STORE_KEY = 'hora-do-remedio/store';
 
@@ -29,6 +30,19 @@ function makeMedicine(overrides: Partial<Medicine> = {}): Medicine {
     soundId: 'classico',
     active: true,
     createdAt: '2026-07-01T09:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makeFormValues(overrides: Partial<MedicineFormValues> = {}): MedicineFormValues {
+  return {
+    name: 'Remédio Novo',
+    photoUri: null,
+    times: ['12:00'],
+    startDate: '2026-07-01',
+    durationDays: 10,
+    soundId: 'classico',
+    treatment: '',
     ...overrides,
   };
 }
@@ -159,6 +173,133 @@ describe('toggleDose', () => {
     // outra), então as duas se comportam como "marcar", e a última a gravar
     // vence: a dose fica PRESA em "tomada" mesmo que o usuário tenha desmarcado.
     expect(apiRef.current!.doseLog).toHaveLength(0);
+  });
+});
+
+describe('addMedicine: campo "Tratamento"', () => {
+  it('tratamento com espaços ao redor (" Dor ") é salvo já "aparado" ("Dor")', async () => {
+    const apiRef = await mountWithStore({ version: 1, medicines: [], doseLog: [] });
+
+    let created: Medicine | undefined;
+    await act(async () => {
+      created = await apiRef.current!.addMedicine(makeFormValues({ treatment: ' Dor ' }));
+    });
+
+    expect(created!.treatment).toBe('Dor');
+    expect(apiRef.current!.medicines[0].treatment).toBe('Dor');
+    expect((await persistedStore()).medicines[0].treatment).toBe('Dor');
+  });
+
+  it('tratamento só com espaços vira undefined (nunca string vazia)', async () => {
+    const apiRef = await mountWithStore({ version: 1, medicines: [], doseLog: [] });
+
+    let created: Medicine | undefined;
+    await act(async () => {
+      created = await apiRef.current!.addMedicine(makeFormValues({ treatment: '   ' }));
+    });
+
+    expect(created!.treatment).toBeUndefined();
+    expect(apiRef.current!.medicines[0].treatment).toBeUndefined();
+    // JSON.stringify remove chaves com valor undefined: a chave não deve aparecer gravada.
+    const persistedRaw = await AsyncStorage.getItem(STORE_KEY);
+    const persistedMed = JSON.parse(persistedRaw!).medicines[0];
+    expect('treatment' in persistedMed).toBe(false);
+  });
+
+  it('tratamento vazio ("") também vira undefined', async () => {
+    const apiRef = await mountWithStore({ version: 1, medicines: [], doseLog: [] });
+
+    let created: Medicine | undefined;
+    await act(async () => {
+      created = await apiRef.current!.addMedicine(makeFormValues({ treatment: '' }));
+    });
+
+    expect(created!.treatment).toBeUndefined();
+  });
+
+  it('tratamento com acentuação e ç ("Infecção", "Anti-inflamatório") é salvo e recarregado corretamente', async () => {
+    const apiRef = await mountWithStore({ version: 1, medicines: [], doseLog: [] });
+
+    await act(async () => {
+      await apiRef.current!.addMedicine(makeFormValues({ name: 'Remédio A', treatment: 'Infecção' }));
+    });
+    await act(async () => {
+      await apiRef.current!.addMedicine(
+        makeFormValues({ name: 'Remédio B', treatment: 'Anti-inflamatório' }),
+      );
+    });
+
+    const persisted = await persistedStore();
+    expect(persisted.medicines.find((m) => m.name === 'Remédio A')?.treatment).toBe('Infecção');
+    expect(persisted.medicines.find((m) => m.name === 'Remédio B')?.treatment).toBe('Anti-inflamatório');
+  });
+});
+
+describe('updateMedicine: campo "Tratamento"', () => {
+  it('editar tratamento com espaços ao redor (" Febre ") salva "aparado" ("Febre")', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ id: 'med-1', treatment: 'Dor' })],
+      doseLog: [],
+    };
+    const apiRef = await mountWithStore(store);
+
+    await act(async () => {
+      await apiRef.current!.updateMedicine('med-1', { treatment: ' Febre ' });
+    });
+
+    expect(apiRef.current!.medicines[0].treatment).toBe('Febre');
+    expect((await persistedStore()).medicines[0].treatment).toBe('Febre');
+  });
+
+  it('remover o tratamento de um remédio existente (treatment: "") realmente limpa o campo (vira undefined, não string vazia)', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ id: 'med-1', treatment: 'Dor' })],
+      doseLog: [],
+    };
+    const apiRef = await mountWithStore(store);
+
+    await act(async () => {
+      await apiRef.current!.updateMedicine('med-1', { treatment: '' });
+    });
+
+    expect(apiRef.current!.medicines[0].treatment).toBeUndefined();
+    const persistedRaw = await AsyncStorage.getItem(STORE_KEY);
+    const persistedMed = JSON.parse(persistedRaw!).medicines[0];
+    expect('treatment' in persistedMed).toBe(false);
+  });
+
+  it('atualizar outro campo sem mencionar treatment mantém o tratamento existente intacto', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ id: 'med-1', treatment: 'Dor' })],
+      doseLog: [],
+    };
+    const apiRef = await mountWithStore(store);
+
+    await act(async () => {
+      await apiRef.current!.updateMedicine('med-1', { name: 'Nome Alterado' });
+    });
+
+    expect(apiRef.current!.medicines[0].name).toBe('Nome Alterado');
+    expect(apiRef.current!.medicines[0].treatment).toBe('Dor');
+  });
+
+  it('editar tratamento com acentuação e ç ("Infecção") é salvo corretamente', async () => {
+    const store: Store = {
+      version: 1,
+      medicines: [makeMedicine({ id: 'med-1', treatment: 'Dor' })],
+      doseLog: [],
+    };
+    const apiRef = await mountWithStore(store);
+
+    await act(async () => {
+      await apiRef.current!.updateMedicine('med-1', { treatment: 'Infecção' });
+    });
+
+    expect(apiRef.current!.medicines[0].treatment).toBe('Infecção');
+    expect((await persistedStore()).medicines[0].treatment).toBe('Infecção');
   });
 });
 

@@ -10,8 +10,10 @@ import { DoseCheckItem } from '@/components/dose-check-item';
 import { MedicineCard } from '@/components/medicine-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WarningBanner } from '@/components/warning-banner';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useProvisioningInfo } from '@/hooks/use-provisioning-info';
 import { useAlarmSyncStatus } from '@/lib/alarm-sync-context';
 import { useMedicines } from '@/lib/medicines-context';
 import { doseStatus, dosesForDate, toDateISO, toTimeHM } from '@/lib/schedule';
@@ -35,6 +37,8 @@ export default function HomeScreen() {
   const { medicines, doseLog, loading, toggleDose } = useMedicines();
   const { permissionDenied, schedulingFailed } = useAlarmSyncStatus();
   const alarmWarning = permissionDenied || schedulingFailed;
+  const { info: provisioning } = useProvisioningInfo();
+  const expiryWarning = provisioning !== null && provisioning.daysRemaining <= 2;
 
   const todayDoses = useMemo(() => dosesForDate(medicines, todayISO), [medicines, todayISO]);
 
@@ -83,28 +87,33 @@ export default function HomeScreen() {
           </View>
 
           {alarmWarning && (
-            <Pressable
-              onPress={() => router.push('/settings')}
-              accessibilityRole="button"
+            <WarningBanner
+              icon="bell.slash.fill"
+              title="Alarmes desligados"
+              subtitle={
+                permissionDenied
+                  ? 'Permissão negada — toque para liberar em Ajustes.'
+                  : 'Alguns alarmes não puderam ser agendados — toque para verificar em Ajustes.'
+              }
               accessibilityLabel="Alarmes desligados. Toque para verificar em Ajustes."
-              style={({ pressed }) => [
-                styles.alarmBanner,
-                { backgroundColor: theme.accentSoft, borderColor: theme.danger },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <SymbolView name="bell.slash.fill" size={20} tintColor={theme.danger} />
-              <View style={styles.alarmBannerText}>
-                <ThemedText type="smallBold" themeColor="danger">
-                  Alarmes desligados
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {permissionDenied
-                    ? 'Permissão negada — toque para liberar em Ajustes.'
-                    : 'Alguns alarmes não puderam ser agendados — toque para verificar em Ajustes.'}
-                </ThemedText>
-              </View>
-            </Pressable>
+              onPress={() => router.push('/settings')}
+            />
+          )}
+
+          {expiryWarning && provisioning && (
+            <WarningBanner
+              icon="clock.badge.exclamationmark.fill"
+              title={
+                provisioning.daysRemaining <= 0
+                  ? 'Instalação expirada'
+                  : provisioning.daysRemaining === 1
+                    ? 'Expira amanhã'
+                    : `Expira em ${provisioning.daysRemaining} dias`
+              }
+              subtitle='Abra o AltStore e toque em "Refresh All" para os alarmes continuarem funcionando.'
+              accessibilityLabel="Instalação prestes a expirar. Toque para ver como renovar em Ajustes."
+              onPress={() => router.push('/settings')}
+            />
           )}
 
           <ThemedText type="heading" style={styles.sectionTitle}>
@@ -210,18 +219,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: Spacing.two,
-  },
-  alarmBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    borderRadius: Radius.chip,
-    borderWidth: 1,
-    padding: Spacing.three,
-  },
-  alarmBannerText: {
-    flex: 1,
-    gap: 2,
   },
   blister: {
     borderRadius: Radius.card,

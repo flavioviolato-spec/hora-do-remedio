@@ -40,6 +40,8 @@ function isValidMedicine(value: unknown): value is Medicine {
     Number.isInteger(med.durationDays) &&
     med.durationDays >= 1 &&
     typeof med.soundId === 'string' &&
+    (med.treatment === undefined ||
+      (typeof med.treatment === 'string' && med.treatment.trim().length <= 40)) &&
     typeof med.active === 'boolean' &&
     typeof med.createdAt === 'string'
   );

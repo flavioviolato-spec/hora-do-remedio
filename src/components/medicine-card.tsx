@@ -56,6 +56,11 @@ export function MedicineCard({ medicine, todayISO, onPress, onEdit }: Props) {
         <ThemedText type="heading" numberOfLines={2}>
           {medicine.name}
         </ThemedText>
+        {medicine.treatment && (
+          <ThemedText type="small" themeColor="brand" numberOfLines={1}>
+            {medicine.treatment}
+          </ThemedText>
+        )}
         <View style={styles.timesRow}>
           {medicine.times.map((time) => (
             <View key={time} style={[styles.timeChip, { backgroundColor: theme.accentSoft }]}>

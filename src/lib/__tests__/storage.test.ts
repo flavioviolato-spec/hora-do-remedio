@@ -59,6 +59,13 @@ describe('loadStore / saveStore', () => {
     await saveStore(store);
     expect((await loadStore()).doseLog).toHaveLength(1);
   });
+
+  it('salva e recarrega remédio com treatment preservando acentuação e ç', async () => {
+    const store: Store = { version: 1, medicines: [makeMedicine({ treatment: 'Náusea e vômito' })], doseLog: [] };
+    await saveStore(store);
+    const loaded = await loadStore();
+    expect(loaded.medicines[0].treatment).toBe('Náusea e vômito');
+  });
 });
 
 describe('sanitizeStore', () => {
@@ -197,5 +204,65 @@ describe('sanitizeStore', () => {
   it('id fora do padrão UUID (ex.: "../x") é filtrado — vira nome de arquivo de foto', () => {
     const dirty = { version: 1, medicines: [makeMedicine({ id: '../x' })], doseLog: [] };
     expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  // --- Campo "Tratamento" (opcional) ---
+
+  it('compatibilidade retroativa: remédio salvo ANTES da feature (sem o campo treatment) continua válido', () => {
+    const semTreatment = makeMedicine(); // makeMedicine() não inclui treatment
+    expect('treatment' in semTreatment).toBe(false);
+    const dirty = { version: 1, medicines: [semTreatment], doseLog: [] };
+    const result = sanitizeStore(dirty);
+    expect(result.medicines).toHaveLength(1);
+    expect(result.medicines[0].treatment).toBeUndefined();
+  });
+
+  it('remédio com treatment string curta e válida é aceito, com acentuação/ç preservada', () => {
+    const dirty = {
+      version: 1,
+      medicines: [makeMedicine({ treatment: 'Infecção' }), makeMedicine({ id: 'b', treatment: 'Anti-inflamatório' })],
+      doseLog: [],
+    };
+    const result = sanitizeStore(dirty);
+    expect(result.medicines).toHaveLength(2);
+    expect(result.medicines[0].treatment).toBe('Infecção');
+    expect(result.medicines[1].treatment).toBe('Anti-inflamatório');
+  });
+
+  it('remédio com treatment de exatamente 40 caracteres é aceito (limite superior)', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ treatment: 'a'.repeat(40) })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(1);
+  });
+
+  it('remédio com treatment de 41 caracteres é REJEITADO — o remédio inteiro cai do array', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ treatment: 'a'.repeat(41) })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('remédio com treatment em tipo errado (número em vez de string) é rejeitado', () => {
+    const dirty = {
+      version: 1,
+      medicines: [makeMedicine({ treatment: 42 as unknown as string })],
+      doseLog: [],
+    };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(0);
+  });
+
+  it('treatment só com espaços em branco (mesmo 41+) é aceito: isValidMedicine mede o tamanho aparado (trim), igual a validateMedicine', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ treatment: ' '.repeat(41) })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(1);
+  });
+
+  it('treatment com espaços nas pontas: só a parte aparada conta pro limite de 40 (consistente com validateMedicine)', () => {
+    const treatment = `  ${'a'.repeat(40)}  `;
+    const dirty = { version: 1, medicines: [makeMedicine({ treatment })], doseLog: [] };
+    expect(sanitizeStore(dirty).medicines).toHaveLength(1);
+  });
+
+  it('remédio com treatment string vazia ("") é aceito pela sanitização (a camada de storage não distingue de "não informado")', () => {
+    const dirty = { version: 1, medicines: [makeMedicine({ treatment: '' })], doseLog: [] };
+    const result = sanitizeStore(dirty);
+    expect(result.medicines).toHaveLength(1);
+    expect(result.medicines[0].treatment).toBe('');
   });
 });

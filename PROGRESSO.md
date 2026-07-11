@@ -4,11 +4,26 @@
 
 ## Estado atual
 
-**ETAPA 6 CONCLUÍDA EM 11/07/2026 — sons customizados + ícone/splash.** Cadastro de remédio ganhou seletor de som real (`SoundPicker`, com prévia via `expo-audio`) — antes o som era sempre o mesmo, sem escolha. 4 sons (`sino`/`suave`/`urgente`/`eletronico`, baixados do Kenney.nl com permissão do Flavio, licença CC0 documentada em `assets/sounds/LICENSE.md`, convertidos para `.wav` localmente com ffmpeg) + o som padrão do iPhone, embutidos no build iOS por um config plugin próprio (`plugins/withAlarmSounds.js`, mesmo mecanismo do `expo-notifications` oficial). Ícone do app e splash trocados do padrão do template Expo para a identidade "farmácia de bairro" (cruz branca sobre verde da marca, gerada programaticamente).
+**ETAPA 7 CONCLUÍDA EM 11/07/2026 — entrega v1.0.** Banner de validade da instalação (avisa quando a assinatura do AltStore está perto de vencer, na Home e em Ajustes), guia de teste manual (`TESTES-NO-IPHONE.md`) e README reescrito. Durante a implementação, QA achou um defeito real e crítico: a leitura do arquivo de validade (`embedded.mobileprovision`) usava codificação UTF-8, que lança erro em arquivo binário — o banner nunca apareceria no aparelho real. Corrigido lendo como Base64 (nunca falha). Duas rodadas de teste independentes confirmaram a correção (uma delas com 5552 casos de comparação byte a byte). Revisor de segurança e revisor de código aprovaram sem itens críticos.
 
-Testador aprovou sem defeitos bloqueantes (achou 1 melhoria de UX aplicada: `normalizeSoundId` evita o seletor ficar sem nada marcado quando um remédio antigo tem som que não existe mais). Revisor de segurança achou 1 item real: o `expo-audio` pedia permissão de microfone sem necessidade (o app só toca prévia, nunca grava) — corrigido (`microphonePermission: false`). Revisor de código: 2 melhorias baratas aplicadas (removida duplicação em `native.ts`, plugin agora avisa claramente se `assets/sounds/` sumir). **166/166 testes.**
+Junto, dois pedidos novos do Flavio nesta sessão:
+- **Campo "Tratamento"** (opcional, até 40 caracteres, ex.: "Dor", "Antibiótico") — aparece na Home e no histórico do remédio, com chips de sugestão no cadastro. Compatível com remédios já cadastrados (sem esse campo, continuam válidos).
+- **Versão instalada em Ajustes** — mostra a tag do GitHub usada no build (ex.: `v0.5.0-teste`), definida automaticamente pelo CI a partir da tag empurrada; deixa claro se uma atualização pelo AltStore realmente pegou.
 
-**Próxima: Etapa 7 (entrega v1.0 — banner de expiração dos 7 dias, documentação final, checklist manual) e OCR (ler nome do remédio na foto).** Atenção: o app instalado expira em 7 dias (renovar no AltStore); o banner de aviso interno ainda não foi implementado (é justamente a Etapa 7).
+Também extraído `WarningBanner` (componente reutilizável para os avisos da Home, antes duplicados). Ciclo completo de teste/revisão em cada um dos três itens (testador → revisor-seguranca → revisor-codigo), todos aprovados. **225/225 testes.**
+
+**Próxima: OCR (ler nome do remédio na foto) — único item que falta no plano original.**
+
+### Etapa 7 — concluída (11/07/2026)
+- [x] `src/lib/provisioning.ts`: lê `embedded.mobileprovision` (Base64 + decodificador manual próprio) e extrai a data de validade da assinatura AltStore
+- [x] **Defeito crítico corrigido**: leitura original em UTF-8 lançava erro em arquivo binário real — banner nunca apareceria no aparelho; corrigido antes de qualquer build
+- [x] Banner "Expira em N dias" / "Expira amanhã" / "Instalação expirada" na Home; caixa de status com data completa em Ajustes
+- [x] `src/components/warning-banner.tsx` (novo): componente único para os dois avisos da Home (alarmes desligados / instalação expirando), eliminando duplicação
+- [x] `README.md` reescrito, `TESTES-NO-IPHONE.md` novo (checklist manual, 9 seções)
+- [x] Campo **"Tratamento"** (opcional): `src/lib/types.ts`, `validation.ts`, `storage.ts`, `medicines-context.tsx`, `medicine-form.tsx` (chips de sugestão + texto livre), exibido em `medicine-card.tsx` e no histórico
+- [x] **Versão instalada em Ajustes**: `src/lib/app-version.ts` (função pura, testável) + `EXPO_PUBLIC_APP_VERSION` definida pelo CI só em builds de tag (`build-ios.yml`)
+- [x] Ciclo completo (3 itens, cada um com testador + revisor-seguranca + revisor-codigo): todos **aprovados**, achados baixos/recomendados aplicados (nome fictício em teste, `trim()` alinhado entre `validation.ts`/`storage.ts`, tipagem `SFSymbol`, workflow só preenche versão em build de tag)
+- [x] Verificação final: `tsc` ok, **225/225 testes**
 
 ### Etapa 6 — concluída (11/07/2026)
 - [x] `src/lib/sounds.ts`: catálogo `ALARM_SOUNDS` (5 opções) + `soundFileNameFor`/`normalizeSoundId`

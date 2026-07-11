@@ -1,12 +1,15 @@
-import { addSeconds } from 'date-fns';
+import { addSeconds, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
+import { useProvisioningInfo } from '@/hooks/use-provisioning-info';
 import { useTheme } from '@/hooks/use-theme';
 import { getAlarmPort } from '@/lib/alarm';
+import { appVersionLabel } from '@/lib/app-version';
 
 /**
  * Ajustes + área de teste do alarme (o "smoke test" da Etapa 2):
@@ -16,6 +19,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const alarmPort = getAlarmPort();
   const isReal = alarmPort.isAvailable();
+  const { info: provisioning } = useProvisioningInfo();
 
   const [testAlarmId, setTestAlarmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +80,28 @@ export default function SettingsScreen() {
         </ThemedText>
       </View>
 
+      {provisioning && (
+        <View
+          style={[
+            styles.statusBox,
+            { backgroundColor: provisioning.daysRemaining <= 2 ? theme.accentSoft : theme.brandSoft },
+          ]}
+        >
+          <ThemedText
+            type="smallBold"
+            themeColor={provisioning.daysRemaining <= 2 ? 'danger' : 'brand'}
+          >
+            {provisioning.daysRemaining <= 0
+              ? 'Instalação expirada — abra o AltStore e toque em "Refresh All".'
+              : `Instalação válida até ${format(provisioning.expirationDate, "d 'de' MMMM", { locale: ptBR })} (faltam ${provisioning.daysRemaining} ${provisioning.daysRemaining === 1 ? 'dia' : 'dias'}).`}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.provisioningHint}>
+            App instalado fora da App Store (AltStore) expira a cada 7 dias — abra o AltStore no
+            iPhone e toque em &quot;Refresh All&quot; antes de vencer, senão os alarmes param.
+          </ThemedText>
+        </View>
+      )}
+
       <ThemedText type="heading" style={styles.sectionTitle}>
         Teste do alarme
       </ThemedText>
@@ -115,6 +141,9 @@ export default function SettingsScreen() {
         <ThemedText type="small" themeColor="textSecondary">
           Hora do Remédio — dados guardados somente neste aparelho.
         </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Versão instalada: {appVersionLabel(process.env.EXPO_PUBLIC_APP_VERSION)}
+        </ThemedText>
       </View>
     </ThemedView>
   );
@@ -129,6 +158,10 @@ const styles = StyleSheet.create({
   statusBox: {
     borderRadius: Radius.chip,
     padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  provisioningHint: {
+    lineHeight: 18,
   },
   sectionTitle: {
     marginTop: Spacing.two,
@@ -146,5 +179,6 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     alignItems: 'center',
     paddingBottom: Spacing.four,
+    gap: Spacing.half,
   },
 });

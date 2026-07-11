@@ -34,6 +34,8 @@ UI (expo-router)  →  medicines-context (estado + persistência)
 | **Um único contexto para `medicines` + `doseLog`** (Etapa 5) | Os dois vivem no mesmo `Store`/arquivo JSON; dois contextos independentes arriscam uma gravação sobrescrever a outra. |
 | **Celebração de dose tomada com Reanimated, sem Lottie** (Etapa 5) | Zero dependência nativa nova; Reanimated já entrega o efeito e já está provado no app (`dose-check-item.tsx`). |
 | **Sons do alarme via config plugin próprio** (`plugins/withAlarmSounds.js`, Etapa 6) | Mecanismo padrão do Expo para embutir arquivo no bundle nativo; roda sozinho dentro do `expo prebuild` já existente no CI, sem precisar de Mac. |
+| **Validade da instalação lida direto do `embedded.mobileprovision`** (Base64, Etapa 7) | É o único jeito de saber, de dentro do app, quando a assinatura gratuita do AltStore vai vencer — sem isso, o alarme para de tocar sem aviso nenhum. Lido como Base64 (não UTF-8): o arquivo é um envelope binário assinado (CMS/PKCS7), e leitura UTF-8 estrita lança erro em qualquer arquivo que não seja texto válido — achado real de QA que teria deixado o banner sempre quebrado no aparelho real (ver `provisioning.ts`). |
+| **Versão exibida em Ajustes vem da tag do git, injetada pelo CI** (`EXPO_PUBLIC_APP_VERSION`, Etapa 7) | `app.json` tem uma versão fixa (`1.0.0`) que nunca muda — não serve pra conferir qual build está instalada. A tag usada no build (`v0.5.0-teste`, etc.) já é o identificador real de cada Release; o workflow só a propaga como variável de ambiente (só em builds de tag, nunca em build manual numa branch) em vez de exigir bump manual de versão a cada release. |
 | **OCR do nome do remédio via módulo Expo nativo próprio** (Vision `VNRecognizeTextRequest`) | Não há, com confiança suficiente, um pacote OCR iOS mantido e compatível com New Architecture; a API da Apple é pequena, estável, gratuita e roda 100% no aparelho (exigência de LGPD). |
 
 ## Concorrência no reconciliador de alarmes (10/07/2026)
@@ -214,7 +216,7 @@ de ouro: preferir o que já existe e é bem mantido, quando existir).
 
 ```ts
 Medicine  { id(uuid), name, photoUri|null, times["HH:MM"], startDate"YYYY-MM-DD",
-            durationDays(1–365), soundId, active, createdAt }
+            durationDays(1–365), soundId, treatment?(≤40 chars), active, createdAt }
 DoseRecord{ medicineId, dateISO, time, takenAt }
 Store     { version:1, medicines[], doseLog[] }   // AsyncStorage "hora-do-remedio/store"
 ```
@@ -233,9 +235,12 @@ __mocks__/        mock oficial do AsyncStorage p/ jest
 
 ## Qualidade
 
-- **166 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker) — rodar com `npm test`
+- **225 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker, provisioning, app-version) — rodar com `npm test`
 - Ciclo obrigatório por etapa: testador → revisor-seguranca → revisor-codigo → correções → testes de novo (CLAUDE.md)
-- Última revisão de segurança: 11/07/2026 (Etapa 6) — 1 item real corrigido (permissão de
-  microfone desnecessária do `expo-audio`, desativada)
-- Última revisão de código: 11/07/2026 (Etapa 6), aprovada sem itens críticos (2 melhorias
-  baratas aplicadas: duplicação removida em `native.ts`, plugin de sons avisa se a pasta sumir)
+- Última revisão de segurança: 11/07/2026 (Etapa 7 — banner de validade, campo Tratamento,
+  versão em Ajustes) — aprovada sem itens críticos; achados baixos corrigidos (nome fictício
+  em dado de teste)
+- Última revisão de código: 11/07/2026 (Etapa 7), aprovada sem itens críticos (melhorias
+  aplicadas: `WarningBanner` extraído, `trim()` alinhado entre `validation.ts`/`storage.ts`,
+  tipagem `SFSymbol` em vez de namespace `React` implícito, workflow só preenche versão em
+  build de tag)

@@ -39,6 +39,7 @@ export default function EditMedicineScreen() {
       startDate: values.startDate,
       durationDays: values.durationDays,
       soundId: values.soundId,
+      treatment: values.treatment,
     });
     router.back();
   }

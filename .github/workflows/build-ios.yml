@@ -18,6 +18,11 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 60
+    # Só preenche em builds vindas de tag (as únicas que viram Release/instalação
+    # real) — build manual (workflow_dispatch) numa branch cairia no rótulo
+    # padrão "Versão de desenvolvimento" em vez de mostrar o nome da branch.
+    env:
+      EXPO_PUBLIC_APP_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
     steps:
       - uses: actions/checkout@v4
 
