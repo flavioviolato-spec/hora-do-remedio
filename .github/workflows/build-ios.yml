@@ -35,7 +35,10 @@ jobs:
       - name: Instalar pods (CocoaPods)
         run: pod install --project-directory=ios
 
-      - name: Compilar sem assinatura (archive)
+      # "build" (e não "archive"): sem assinatura, o archive não coloca o app
+      # em Products/Applications — o build com derivedDataPath deixa o .app em
+      # Build/Products/Release-iphoneos, caminho previsível para empacotar.
+      - name: Compilar sem assinatura
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | python3 -c "import json,sys; print(json.load(sys.stdin)['workspace']['schemes'][0])")
@@ -44,16 +47,18 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath build/app.xcarchive \
-            archive \
+            -derivedDataPath build \
+            build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Empacotar .ipa
         run: |
+          APP=$(ls -d build/Build/Products/Release-iphoneos/*.app | head -1)
+          echo "App compilado: $APP"
           mkdir -p Payload
-          cp -r build/app.xcarchive/Products/Applications/*.app Payload/
+          cp -r "$APP" Payload/
           zip -qry HoraDoRemedio-unsigned.ipa Payload
           ls -lh HoraDoRemedio-unsigned.ipa
 
