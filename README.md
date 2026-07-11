@@ -1,56 +1,47 @@
-# Welcome to your Expo app 👋
+# Hora do Remédio 💊
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App de iPhone para lembrar de tomar remédios, feito para uso pessoal do Flavio.
 
-## Get started
+**A promessa central:** o alarme toca no horário do remédio **mesmo com o iPhone no
+modo silencioso**, igual ao despertador nativo — via AlarmKit (iOS 26+).
 
-1. Install dependencies
+## O que o app faz
 
-   ```bash
-   npm install
-   ```
+- Cadastra remédio **fotografando a caixinha** (ou escolhendo foto da galeria)
+- Vários **horários por dia** e **duração em dias** (ex.: 3× ao dia por 7 dias)
+- Tela inicial com as **doses de hoje** (checklist estilo cartela de comprimidos)
+  e os remédios cadastrados com foto, horários e "faltam N dias"
+- **Marcar dose como tomada**, editar, pausar e excluir remédios
+- Tudo salvo **somente no aparelho** — nenhum dado sai do iPhone
 
-2. Start the app
+## Estado do projeto
 
-   ```bash
-   npx expo start
-   ```
+Ver [PROGRESSO.md](PROGRESSO.md) (estado atual e próximos passos) e
+[PLANO.md](PLANO.md) (plano completo das etapas). Aprendizados técnicos ficam em
+[DESAFIOS.md](DESAFIOS.md); decisões de arquitetura em [ARQUITETURA.md](ARQUITETURA.md).
 
-In the output, you'll find options to open the app in a
+| Etapa | Entrega | Status |
+|---|---|---|
+| 0–1 | Projeto + Home + tema + testes | ✅ |
+| 3 | Cadastro real (foto, horários, duração) com revisões | ✅ |
+| 2 | Build nativo (.ipa) + alarme no silencioso | ⏳ aguarda conta GitHub |
+| 4–7 | Alarmes reais, histórico, sons, entrega v1.0 | pendentes |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Para desenvolver (ambiente Windows + iPhone)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+npm install            # dependências
+npm test               # testes automatizados (jest)
+npm run typecheck      # checagem de tipos
+npx expo start --tunnel  # servidor de desenvolvimento (iPhone via Expo Go)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+O iPhone abre o app pelo **Expo Go** (QR code do túnel). Importante: o projeto usa
+**Expo SDK 54** de propósito — é a versão que o Expo Go do aparelho suporta.
+Não subir o SDK sem checar o aparelho (DESAFIOS.md, itens 7–8).
 
-### Other setup steps
+## Privacidade (LGPD)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Nomes de remédios e fotos são dados de saúde do usuário: ficam apenas no
+armazenamento interno do app no aparelho, sem servidor, sem rede, sem analytics.
+Logs não contêm nome de remédio. Testes usam somente dados fictícios.
