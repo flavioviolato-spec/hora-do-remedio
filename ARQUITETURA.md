@@ -36,7 +36,7 @@ UI (expo-router)  →  medicines-context (estado + persistência)
 | **Sons do alarme via config plugin próprio** (`plugins/withAlarmSounds.js`, Etapa 6) | Mecanismo padrão do Expo para embutir arquivo no bundle nativo; roda sozinho dentro do `expo prebuild` já existente no CI, sem precisar de Mac. |
 | **Validade da instalação lida direto do `embedded.mobileprovision`** (Base64, Etapa 7) | É o único jeito de saber, de dentro do app, quando a assinatura gratuita do AltStore vai vencer — sem isso, o alarme para de tocar sem aviso nenhum. Lido como Base64 (não UTF-8): o arquivo é um envelope binário assinado (CMS/PKCS7), e leitura UTF-8 estrita lança erro em qualquer arquivo que não seja texto válido — achado real de QA que teria deixado o banner sempre quebrado no aparelho real (ver `provisioning.ts`). |
 | **Versão exibida em Ajustes vem da tag do git, injetada pelo CI** (`EXPO_PUBLIC_APP_VERSION`, Etapa 7) | `app.json` tem uma versão fixa (`1.0.0`) que nunca muda — não serve pra conferir qual build está instalada. A tag usada no build (`v0.5.0-teste`, etc.) já é o identificador real de cada Release; o workflow só a propaga como variável de ambiente (só em builds de tag, nunca em build manual numa branch) em vez de exigir bump manual de versão a cada release. |
-| **OCR do nome do remédio via módulo Expo nativo próprio** (Vision `VNRecognizeTextRequest`) | Não há, com confiança suficiente, um pacote OCR iOS mantido e compatível com New Architecture; a API da Apple é pequena, estável, gratuita e roda 100% no aparelho (exigência de LGPD). |
+| **OCR do nome do remédio via pacote pronto** (`expo-text-extractor`, com `@dariyd/react-native-text-recognition` e módulo Swift próprio como planos B/C) | Confirmado com dados reais de npm/GitHub (não só descrição): `expo-text-extractor` está ativo (push há ~2,5 semanas, 70 estrelas). Usa a Expo Modules API (mesma base dos módulos oficiais do Expo já usados no projeto) para chamar o Vision da Apple no iOS — mesma tecnologia que um módulo próprio usaria, já escrita, com risco de manutenção aceitável porque o OCR é conveniência, não função crítica. Decisão condicionada a um teste real de instalação antes de integrar na tela — ver seção dedicada abaixo. |
 
 ## Concorrência no reconciliador de alarmes (10/07/2026)
 
@@ -168,49 +168,126 @@ dependência nativa nova.
   regenerado do zero a cada `prebuild`, então o passo manual teria que se
   repetir em todo build.
 
-## OCR do nome do remédio pela foto da caixinha (11/07/2026)
+## OCR do nome do remédio pela foto da caixinha (decisão revisada em 11/07/2026, confirmada com dados reais de npm/GitHub)
 
-**Decisão**: escrever um módulo Expo nativo próprio, pequeno, em Swift
-(via Expo Modules API — módulo local dentro do próprio projeto, sem
-depender de pacote publicado por terceiros), chamando o `VNRecognizeTextRequest`
-do framework Vision da Apple e devolvendo ao JS as linhas de texto
-reconhecidas na foto. É a mesma técnica de "módulo local autolinkado"
-já prevista como plano B para o AlarmKit no PLANO.md, agora usada como
-caminho principal.
+**Decisão final**: adotar o pacote de terceiro `expo-text-extractor` como
+primeira escolha — em vez de escrever, de saída, um módulo Swift do zero.
+Ele usa a **Expo Modules API** (o mesmo mecanismo dos módulos oficiais que
+o projeto já usa, como `expo-image` e `expo-file-system`) para chamar o
+`VNRecognizeTextRequest` do framework **Vision** da Apple no iOS —
+exatamente a mesma tecnologia que um módulo próprio usaria, só que já
+escrita. A escolha fica condicionada a um **teste real de instalação**
+antes de integrar na tela (ver "Antes de integrar no formulário" no
+PLANO.md, Etapa 8) — não só à leitura de documentação.
 
-**Motivo**: não encontrei, com confiança suficiente para recomendar, um
-pacote React Native/Expo de OCR para iOS atualmente mantido e compatível
-com a New Architecture que este projeto já usa (`newArchEnabled: true`) —
-os que existem no ecossistema tendem a estar desatualizados ou a depender
-do Google ML Kit (mais um framework de terceiros pesado, para fazer o que
-o próprio iOS já faz de graça e localmente). Diante dessa dúvida — e como
-o `VNRecognizeTextRequest` é uma API pequena, estável e muito bem
-documentada da Apple (existe desde 2019, não muda com frequência) — o
-módulo próprio fica pequeno (uma função: recebe o caminho da foto, devolve
-o texto reconhecido), mais fácil de auditar e manter no futuro do que
-depender da disponibilidade contínua de um pacote de terceiro incerto.
-Roda 100% no aparelho, sem rede — atende à exigência de sigilo/LGPD (foto
-da caixinha nunca sai do iPhone).
+**Esta seção passou por duas rodadas na mesma sessão**: uma primeira
+revisão (subagente arquiteto) sem acesso a ferramentas de busca —
+registrada abaixo como nota de transparência — seguida de uma
+**verificação real**, feita diretamente na API pública do npm
+(`registry.npmjs.org`) e do GitHub, que confirma ou corrige cada
+candidato com números de verdade (não suposição):
 
-**Antes de implementar**: farei uma checagem pontual por um pacote mantido
-no momento da implementação (o ecossistema de bibliotecas muda com o
-tempo); se aparecer uma opção madura e compatível com New Architecture,
-ela passa a ser preferida — mais simples que manter código Swift. Até lá,
-o módulo próprio é o caminho assumido.
+| Pacote | Dados reais confirmados (11/07/2026) | Veredito |
+|---|---|---|
+| `expo-text-extractor` (pchalupa) | npm: v2.0.0 publicado 28/02/2026 (histórico ativo desde 01/2025, versões consistentes 0.1→0.2→1.0→2.0); GitHub: último push 23/06/2026 (~2,5 semanas antes desta checagem), 70 estrelas, 6 forks, não arquivado, issues abertas majoritariamente de bump automático de dependência (sinal de manutenção saudável, não de abandono) | **Escolhido — ativo de verdade, dados confirmados, não só descrição do pacote** |
+| `expo-ocr` (barthap) | npm: publicado 09/12/2023 e **despublicado pelo próprio autor 10 minutos depois**, no mesmo dia — nunca existiu como pacote instalável de fato | **Eliminado** — a checagem anterior (sem internet) o listou como alternativa por causa da descrição do GitHub, mas ele nunca chegou a ser um pacote real e utilizável no npm. Corrigido nesta verificação. |
+| `@dariyd/react-native-text-recognition` | npm: v2.0.20 publicado 21/11/2025 — real, mas ~7,5 meses sem atualização até esta checagem (mais parado que `expo-text-extractor`) | Mantido como **alternativa (plano B)** caso `expo-text-extractor` falhe no teste real — pacote existe e usa Vision de verdade, só não é a primeira escolha |
+| `react-native-vision-camera-ocr-plus` | Não verificado numericamente (descartado por motivo estrutural, não de manutenção — ver tabela de decisões acima) | **Descartado** — exigiria `react-native-vision-camera` (dependência pesada que o app não usa; a foto já é estática via `expo-image-picker`) e historicamente usa ML Kit também no iOS, não Vision |
 
-**Checagem feita (11/07/2026)**: encontrado 1 candidato plausível
-(`@dariyd/react-native-text-recognition`, usa Vision de verdade, ativo,
-compatível com New Architecture) — mas mantido por 1 pessoa só, 4 estrelas,
-pouco testado pela comunidade. Decisão confirmada: módulo Swift próprio
-(auditável por completo, sem dependência de terceiro tocando dado de
-saúde, sem carregar suporte a Android/PDF/multi-idioma que o app não usa).
+**Plano C, inalterado**: módulo Swift próprio, se `expo-text-extractor` E
+`@dariyd/react-native-text-recognition` falharem os dois no teste real.
 
-**Alternativa descartada**: pacote de terceiro de OCR (ex.: wrappers de
-Google ML Kit ou de Vision já publicados no npm) como primeira escolha —
-descartado por incerteza de manutenção/compatibilidade com New
-Architecture, não por princípio; se um candidato confiável aparecer na
-checagem da implementação, ele é preferido ao módulo próprio (mesma regra
-de ouro: preferir o que já existe e é bem mantido, quando existir).
+**Contexto**: em 10–11/07/2026, mais cedo no mesmo dia, a decisão
+registrada era escrever um módulo Swift próprio (ver "Checagem original",
+abaixo), porque a busca de então não tinha encontrado nenhum pacote de
+OCR iOS mantido e claramente compatível com a New Architecture além do
+`@dariyd/react-native-text-recognition` (1 mantenedor, poucas estrelas).
+Essa checagem não incluía `expo-text-extractor` nem `expo-ocr` — os dois
+apareceram numa busca nova, feita mais tarde no mesmo dia, o que motivou
+esta revisão (e a tabela de dados reais acima já substitui a comparação
+de candidatos feita nessa busca).
+
+**Por que a Expo Modules API muda o cálculo de risco em relação à checagem
+original**: a preocupação que motivou o módulo próprio (pacote de OCR
+incompatível com a New Architecture, que este projeto usa via
+`newArchEnabled: true`) é estruturalmente menor em pacotes escritos com a
+Expo Modules API — é o mesmo mecanismo interno que o próprio time do Expo
+usa nos seus módulos oficiais, desenhado desde a origem para a New
+Architecture (ao contrário de um módulo "ponte" antigo que precisa de um
+adaptador extra para funcionar com ela). Isso não elimina o risco de
+manutenção (pacote pequeno, poucos mantenedores) — só reduz bastante o
+risco técnico de incompatibilidade que era o motivo original para preferir
+código próprio.
+
+**Por que continua atendendo à exigência de LGPD (100% no aparelho, sem
+rede)**: o `VNRecognizeTextRequest` da Apple **não tem modo de nuvem** —
+é sempre local ao aparelho, sem nenhuma configuração que mande dado para
+fora (ao contrário do ML Kit do Google, que historicamente tem um modo
+on-device e um modo cloud separados). Como este app é **só iOS** (nunca é
+publicado para Android), o código Android desses pacotes — que aí sim usa
+ML Kit — nunca chega a compilar nem a rodar; é código morto para este
+projeto. Ainda assim, antes de integrar de vez, o código Swift instalado
+localmente (dentro de `node_modules/expo-text-extractor/ios/`, depois de
+rodar `npm install`) será conferido diretamente — grep pelo nome da API —
+para confirmar que a chamada real no lado iOS é `VNRecognizeTextRequest`/
+`Vision`, e não algum SDK da Google usado também no iOS. Essa conferência
+de código-fonte local é mais confiável do que confiar só na descrição do
+pacote no npm/GitHub.
+
+**Nota de transparência (histórico)**: a primeira passada desta revisão
+(subagente arquiteto) não teve acesso a ferramentas de busca na internet
+— não deu pra confirmar ao vivo número de estrelas, data de publicação ou
+issues abertas, e por isso chegou a listar `expo-ocr` como alternativa
+válida, só pela descrição do repositório. **Essa lacuna foi fechada logo
+em seguida**, nesta mesma sessão: consultei diretamente a API pública do
+npm (`registry.npmjs.org`) e do GitHub (ver tabela de dados reais acima),
+o que confirmou `expo-text-extractor` como ativo de verdade e revelou que
+`expo-ocr` nunca foi um pacote instalável (despublicado em 2023, minutos
+depois de publicado). A implementação (PLANO.md, Etapa 8) ainda começa
+com um **teste real** antes de integrar na tela — instalar o pacote,
+rodar `expo prebuild`, compilar de verdade pelo CI já existente e testar
+OCR num `.ipa` real no iPhone do Flavio com fotos de caixinhas de verdade
+— porque números de npm/GitHub confirmam manutenção, não que o pacote
+funciona de fato neste projeto específico. Se `expo-text-extractor` não
+compilar, não funcionar, ou o código-fonte não bater com o esperado
+(chamar ML Kit em vez de Vision no iOS, por exemplo), a implementação
+recua para `@dariyd/react-native-text-recognition` com o mesmo teste e,
+por último, para o módulo Swift próprio — plano nunca descartado, só
+adiado; o código-fonte de qualquer um dos dois pacotes serve de
+referência pronta se for preciso escrever o módulo próprio afinal.
+
+**Por que este é um risco aceitável (diferente do módulo do AlarmKit)**:
+o OCR é uma **conveniência**, não uma função crítica do app — se o pacote
+escolhido quebrar num upgrade futuro do Expo, o pior caso é o campo "Nome
+do remédio" voltar a ficar em branco (o usuário sempre pôde digitar o
+nome à mão; é o comportamento de hoje, que nunca deixa de existir). Já o
+módulo do AlarmKit é crítico — sem ele, o app perde sua função central de
+tocar o alarme — e por isso recebeu tratamento mais cauteloso (fork +
+versão pinada, plano de correção por patch). Para o OCR, versão pinada
+exata (sem `^`, no mesmo estilo de `react-native-nitro-ios-alarm-kit`) já
+é proteção suficiente.
+
+**Alternativas descartadas nesta revisão**:
+- *`react-native-vision-camera-ocr-plus`* — motivo na tabela acima.
+- *Manter só o módulo Swift próprio, sem tentar nenhum pacote pronto* —
+  se os pacotes realmente forem wrappers finos e corretos do Vision (a
+  ser confirmado pelo teste real), reescrever do zero é esforço
+  redundante sem ganho de segurança ou funcionalidade — mesma tecnologia
+  por baixo, só que mais código para o Flavio manter no futuro.
+- *`@dariyd/react-native-text-recognition` como primeira escolha* —
+  descartado por não ter a mesma garantia estrutural de New Architecture
+  da Expo Modules API, mesmo alegando hoje suporte a TurboModule.
+
+**Checagem original (10–11/07/2026, mantida como registro histórico)**:
+a primeira checagem, feita mais cedo no mesmo dia, encontrou 1 candidato
+plausível (`@dariyd/react-native-text-recognition`, usa Vision de
+verdade, ativo, alegava compatibilidade com New Architecture) — mas
+mantido por 1 pessoa só, poucas estrelas, pouco testado pela comunidade.
+Decisão da época: módulo Swift próprio (auditável por completo, sem
+dependência de terceiro tocando dado de saúde, sem carregar suporte a
+Android/PDF/multi-idioma que o app não usa). Essa checagem previa
+explicitamente uma nova checagem "no momento da implementação" — é
+exatamente esta seção.
 
 ## Modelo de dados (v1)
 
@@ -235,12 +312,11 @@ __mocks__/        mock oficial do AsyncStorage p/ jest
 
 ## Qualidade
 
-- **225 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker, provisioning, app-version) — rodar com `npm test`
+- **248 testes jest** (schedule, validation, storage, alarmSync, medicines-context, sounds, sound-picker, provisioning, app-version, ocr, ocr-heuristics, medicine-form, routing) — rodar com `npm test`
 - Ciclo obrigatório por etapa: testador → revisor-seguranca → revisor-codigo → correções → testes de novo (CLAUDE.md)
-- Última revisão de segurança: 11/07/2026 (Etapa 7 — banner de validade, campo Tratamento,
-  versão em Ajustes) — aprovada sem itens críticos; achados baixos corrigidos (nome fictício
-  em dado de teste)
-- Última revisão de código: 11/07/2026 (Etapa 7), aprovada sem itens críticos (melhorias
-  aplicadas: `WarningBanner` extraído, `trim()` alinhado entre `validation.ts`/`storage.ts`,
-  tipagem `SFSymbol` em vez de namespace `React` implícito, workflow só preenche versão em
-  build de tag)
+- Última revisão de segurança: 11/07/2026 (Etapa 8 — OCR do nome do remédio) — aprovada sem
+  itens críticos; confirmado por leitura do Swift instalado que o OCR roda 100% local (Vision),
+  sem rede e sem logar texto/foto (dado de saúde)
+- Última revisão de código: 11/07/2026 (Etapa 8), aprovada sem itens críticos (melhorias
+  aplicadas: log silencioso quando o módulo nativo não existe no Expo Go, proteção contra
+  desmontagem no `runOcr`, constante única `MAX_NAME_LENGTH` compartilhada)

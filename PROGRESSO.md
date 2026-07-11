@@ -4,17 +4,21 @@
 
 ## Estado atual
 
-**ETAPA 7 CONCLUÍDA EM 11/07/2026 — entrega v1.0.** Banner de validade da instalação (avisa quando a assinatura do AltStore está perto de vencer, na Home e em Ajustes), guia de teste manual (`TESTES-NO-IPHONE.md`) e README reescrito. Durante a implementação, QA achou um defeito real e crítico: a leitura do arquivo de validade (`embedded.mobileprovision`) usava codificação UTF-8, que lança erro em arquivo binário — o banner nunca apareceria no aparelho real. Corrigido lendo como Base64 (nunca falha). Duas rodadas de teste independentes confirmaram a correção (uma delas com 5552 casos de comparação byte a byte). Revisor de segurança e revisor de código aprovaram sem itens críticos.
+**ETAPA 8 CONCLUÍDA EM 11/07/2026 — OCR (ler nome do remédio na foto) + correção de bug de navegação.** Ao fotografar a caixinha, o app tenta ler o nome impresso (Vision da Apple, 100% offline) e sugere no campo "Nome do remédio" — sempre como sugestão editável, nunca trava o campo, nunca sobrescreve o que o usuário digitou. Pacote `expo-text-extractor@2.0.0` (verificado com dados reais de npm/GitHub e código-fonte: usa `VNRecognizeTextRequest`/Vision de verdade, MIT, sem rede). Também corrigido um bug que o Flavio encontrou: tocar no card de um remédio abria "Unmatched Route" em vez do histórico (rota de índice em pasta dinâmica `medicine/[id]/index.tsx` navegava com "/index" no caminho, que o Expo Router remove em runtime). Ciclo completo (testador com mutation testing + revisor-seguranca + revisor-codigo), todos aprovados; achados do revisor de código aplicados (log silencioso no Expo Go, proteção de desmontagem, constante `MAX_NAME_LENGTH` única). **248/248 testes.**
 
-Junto, dois pedidos novos do Flavio nesta sessão:
-- **Campo "Tratamento"** (opcional, até 40 caracteres, ex.: "Dor", "Antibiótico") — aparece na Home e no histórico do remédio, com chips de sugestão no cadastro. Compatível com remédios já cadastrados (sem esse campo, continuam válidos).
-- **Versão instalada em Ajustes** — mostra a tag do GitHub usada no build (ex.: `v0.5.0-teste`), definida automaticamente pelo CI a partir da tag empurrada; deixa claro se uma atualização pelo AltStore realmente pegou.
+**Próxima: sugestão automática do campo "Tratamento" pelo nome do remédio** (lista curada de remédios comuns + aprender do histórico do próprio usuário) — decidido com o Flavio; entra DEPOIS de o OCR ser confirmado funcionando no iPhone dele. Este é o único item novo na fila; o roadmap original está completo.
 
-Também extraído `WarningBanner` (componente reutilizável para os avisos da Home, antes duplicados). Ciclo completo de teste/revisão em cada um dos três itens (testador → revisor-seguranca → revisor-codigo), todos aprovados. **225/225 testes.**
+### Etapa 8 — OCR do nome do remédio (11/07/2026)
+- [x] `src/lib/ocr.ts`: `recognizeText(photoUri)` — require protegido de `expo-text-extractor`, nunca lança (tudo vira `[]`), silencioso no Expo Go, nunca loga texto/foto (dado de saúde)
+- [x] `src/lib/ocr-heuristics.ts`: `pickBestNameCandidate(lines)` — função pura, escolhe a linha mais provável de ser o nome (descarta dosagem/validade/lote, corta em `MAX_NAME_LENGTH`)
+- [x] `src/components/medicine-form.tsx`: dispara OCR após a foto; proteção contra corrida (`ocrRequestIdRef`) + desmontagem (`mountedRef`); só preenche se o campo estiver vazio; indicador "Lendo o nome da caixinha…"
+- [x] **Bug de navegação corrigido** (`src/app/index.tsx`): card do remédio abria "Unmatched Route"; causa confirmada no código-fonte do expo-router (`getReactNavigationConfig`: segmento `index` vira ''); teste de regressão para toda a classe de bug em `routing.qa-review.test.ts`
+- [x] `expo-text-extractor@2.0.0` pinado exato; verificado por leitura do Swift instalado que usa Vision (não ML Kit) e não faz rede
+- [x] Ciclo completo: **testador** (mutation testing nas 3 proteções do OCR + teste real de rota via funções internas do expo-router), **revisor-seguranca** (aprovado — OCR 100% local, sem log de dado sensível), **revisor-codigo** (aprovado; 3 melhorias aplicadas)
+- [x] Verificação final: `tsc` ok, **248/248 testes**, `expo export` sem erros
+- [ ] PENDENTE (só no aparelho): confirmar que o OCR lê nomes de caixinhas reais bem — Passo 0/item 5 do PLANO.md, só possível após build+AltStore
 
-**Próxima: OCR (ler nome do remédio na foto) — único item que falta no plano original.**
-
-### Etapa 7 — concluída (11/07/2026)
+### Etapa 7 — concluída (11/07/2026) — entrega v1.0
 - [x] `src/lib/provisioning.ts`: lê `embedded.mobileprovision` (Base64 + decodificador manual próprio) e extrai a data de validade da assinatura AltStore
 - [x] **Defeito crítico corrigido**: leitura original em UTF-8 lançava erro em arquivo binário real — banner nunca apareceria no aparelho; corrigido antes de qualquer build
 - [x] Banner "Expira em N dias" / "Expira amanhã" / "Instalação expirada" na Home; caixa de status com data completa em Ajustes

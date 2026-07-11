@@ -9,7 +9,9 @@ iPhone no silencioso e a tela bloqueada.
 
 ## O que o app faz
 
-- Cadastra remédio **fotografando a caixinha** (ou escolhendo foto da galeria)
+- Cadastra remédio **fotografando a caixinha** (ou escolhendo foto da galeria) —
+  ao fotografar, o app tenta **ler o nome impresso** e preencher sozinho (OCR pela
+  câmera do iPhone, 100% offline); é só uma sugestão, sempre editável
 - Campo opcional **"Tratamento"** (ex.: Dor, Náusea e vômito, Antibiótico) — aparece na
   Home e no histórico, para lembrar rapidamente para que serve cada remédio
 - Vários **horários por dia** e **duração em dias** (ex.: 3× ao dia por 7 dias)
@@ -45,7 +47,8 @@ Checklist de teste manual no iPhone: [TESTES-NO-IPHONE.md](TESTES-NO-IPHONE.md).
 | 5 | Histórico de doses tomadas | ✅ |
 | 6 | Sons customizados + ícone/splash | ✅ |
 | 7 | Entrega v1.0 (este README, checklist, banner de validade) | ✅ |
-| — | OCR (ler nome do remédio na foto) | pendente, sem prazo definido |
+| 8 | OCR (ler nome do remédio na foto) + campo Tratamento + versão em Ajustes | ✅ (código; falta confirmar OCR no aparelho) |
+| — | Sugerir o Tratamento pelo nome do remédio (lista curada + histórico) | planejado |
 
 ## Distribuição (sem conta Apple paga)
 

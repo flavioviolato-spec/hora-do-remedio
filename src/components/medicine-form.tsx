@@ -3,7 +3,7 @@ import { addDays } from 'date-fns';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -17,10 +17,12 @@ import { SoundPicker } from '@/components/sound-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { recognizeText } from '@/lib/ocr';
+import { pickBestNameCandidate } from '@/lib/ocr-heuristics';
 import { toDateISO, toTimeHM } from '@/lib/schedule';
 import { normalizeSoundId } from '@/lib/sounds';
 import type { Medicine } from '@/lib/types';
-import { validateMedicine, type MedicineFormValues } from '@/lib/validation';
+import { MAX_NAME_LENGTH, validateMedicine, type MedicineFormValues } from '@/lib/validation';
 
 type Props = {
   initial?: Medicine;
@@ -53,6 +55,20 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
   const [treatment, setTreatment] = useState(initial?.treatment ?? '');
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  /** "Pedido mais recente vence": incrementado a cada nova foto — se o
+   * usuário trocar de foto antes da leitura da anterior terminar, o
+   * resultado da leitura antiga é descartado ao chegar (mesmo princípio da
+   * fila de gravação em medicines-context.tsx, aqui só um contador). */
+  const ocrRequestIdRef = useRef(0);
+  /** Evita aplicar um resultado de OCR depois que a tela já foi fechada
+   * (usuário cancelou/voltou antes da leitura terminar). */
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerValue, setPickerValue] = useState(() => {
@@ -63,6 +79,25 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
 
   const todayISO = toDateISO(new Date());
   const tomorrowISO = toDateISO(addDays(new Date(), 1));
+
+  /**
+   * Lê o nome impresso na caixinha e sugere no campo — sem nunca travar o
+   * formulário nem sobrescrever o que o usuário já digitou. Disparada sem
+   * `await` bloquear a tela (ver captureFromCamera/pickFromLibrary).
+   */
+  function runOcr(uri: string) {
+    const requestId = ++ocrRequestIdRef.current;
+    setOcrLoading(true);
+    recognizeText(uri).then((lines) => {
+      // Tela já fechada, ou resposta de uma foto antiga (outra já venceu a
+      // corrida) — nos dois casos, ignora.
+      if (!mountedRef.current || ocrRequestIdRef.current !== requestId) return;
+      setOcrLoading(false);
+      const candidate = pickBestNameCandidate(lines);
+      if (!candidate) return;
+      setName((current) => (current.trim() === '' ? candidate : current));
+    });
+  }
 
   async function captureFromCamera() {
     try {
@@ -75,7 +110,10 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
-      if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+        runOcr(result.assets[0].uri);
+      }
     } catch {
       Alert.alert('Não foi possível abrir a câmera', 'Tente de novo.');
     }
@@ -87,7 +125,10 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
         mediaTypes: ['images'],
         quality: 0.8,
       });
-      if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+        runOcr(result.assets[0].uri);
+      }
     } catch {
       Alert.alert('Não foi possível abrir a galeria', 'Tente de novo.');
     }
@@ -178,9 +219,14 @@ export function MedicineForm({ initial, submitLabel, onSubmit }: Props) {
         placeholder="Ex.: Amoxicilina 500mg"
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, fieldBox, { color: theme.text }]}
-        maxLength={80}
+        maxLength={MAX_NAME_LENGTH}
         accessibilityLabel="Nome do remédio"
       />
+      {ocrLoading && (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.ocrHint}>
+          Lendo o nome da caixinha…
+        </ThemedText>
+      )}
 
       <ThemedText type="smallBold" themeColor="textSecondary">
         Tratamento (opcional)
@@ -426,6 +472,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 17,
+    marginBottom: Spacing.two,
+  },
+  ocrHint: {
+    marginTop: -Spacing.one,
     marginBottom: Spacing.two,
   },
   timesRow: {

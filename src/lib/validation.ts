@@ -2,6 +2,11 @@
 
 import { TIME_RE, isValidDateISO } from './types';
 
+/** Limite do campo "Nome do remédio" — usado também pelo `TextInput` do
+ * formulário e pela heurística de OCR (ocr-heuristics.ts), pra nunca
+ * sugerir/aceitar um nome maior do que o formulário permite. */
+export const MAX_NAME_LENGTH = 80;
+
 export type MedicineFormValues = {
   name: string;
   photoUri: string | null;
@@ -20,8 +25,8 @@ export function validateMedicine(values: MedicineFormValues): string[] {
   if (values.name.trim().length === 0) {
     errors.push('Dê um nome ao remédio (como está na caixinha).');
   }
-  if (values.name.trim().length > 80) {
-    errors.push('O nome está longo demais (máximo 80 letras).');
+  if (values.name.trim().length > MAX_NAME_LENGTH) {
+    errors.push(`O nome está longo demais (máximo ${MAX_NAME_LENGTH} letras).`);
   }
   if (values.times.length === 0) {
     errors.push('Adicione pelo menos um horário.');

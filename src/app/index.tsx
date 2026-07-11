@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -163,9 +163,13 @@ export default function HomeScreen() {
                   key={medicine.id}
                   medicine={medicine}
                   todayISO={todayISO}
-                  onPress={() =>
-                    router.push({ pathname: '/medicine/[id]/index', params: { id: medicine.id } })
-                  }
+                  // O gerador de tipos do expo-router não cria um tipo para
+                  // a rota de índice de uma pasta dinâmica (medicine/[id]/index.tsx
+                  // vira "/medicine/[id]" em tempo de execução — sem "/index",
+                  // confirmado na doc oficial — mas o tipo gerado só reconhece
+                  // o literal "/medicine/[id]/index", que NÃO navega de verdade
+                  // (bug real encontrado pelo Flavio: tela "Unmatched Route").
+                  onPress={() => router.push(`/medicine/${medicine.id}` as Href)}
                   onEdit={() => router.push(`/medicine/${medicine.id}/edit`)}
                 />
               ))}
