@@ -41,7 +41,10 @@ jobs:
       - name: Compilar sem assinatura
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | python3 -c "import json,sys; print(json.load(sys.stdin)['workspace']['schemes'][0])")
+          # O scheme do app tem o mesmo nome do workspace (gerado pelo prebuild).
+          # NUNCA pegar schemes[0] da lista: vem em ordem alfabética e o
+          # primeiro é um Pod (EXConstants) — foi a causa dos builds 1 e 2.
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
           echo "Workspace: $WORKSPACE | Scheme: $SCHEME"
           xcodebuild -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
